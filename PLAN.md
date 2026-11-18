@@ -214,6 +214,24 @@ Details and acceptance criteria in `docs/04-roadmap.md`.
 Newest first. Anything that surprises a future reader belongs here, not in a commit message nobody
 opens.
 
+### Stock adjustments, and how the first owner exists
+
+- `/admin/stock` is the page that actually puts units on a shelf. Five reasons and no sixth:
+  Received (`PURCHASE` + cost), Damaged, Expired, Self-use (`DAMAGE|EXPIRY|SELF_USE`, note required),
+  Count fix (`ADJUSTMENT`, signed quantity, note required).
+- There is deliberately **no "set quantity" field**. Overwriting a number is how a ledger stops
+  explaining itself, and the cost basis disappears with it.
+- Received stock requires a cost because `avg_cost_paise` — and therefore closing stock value in the
+  settlement — is computed from inbound `PURCHASE` movements only.
+- `adjustStock` runs in one transaction: read level, refuse to go below zero, append the movement,
+  refresh the cache. Verified against PGlite: 5 + 24 @₹17 − 2 damaged − 3 count-fix = 24, weighted
+  average moved 1450 → 1626 paise, and rebuilding from the ledger reproduced the same number.
+- Each product page has "rebuild count from ledger", because `stock_levels` is a cache and a cache
+  should always be rebuildable in one click.
+- **The first owner comes from a shell**, since `/admin/users` needs an owner to open:
+  `npm run user:create -- you@example.com --role OWNER --generate`. Both CLI commands call the same
+  `src/lib/users-admin.ts` functions as the UI, last-owner guard included.
+
 ### Product admin and accounts
 
 - `/admin/products`: one list with search and Low/Out/Archived tabs, one form reused for create and

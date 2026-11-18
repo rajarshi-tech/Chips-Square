@@ -11,7 +11,8 @@ git clone <repo> && cd "Chips Square"
 npm install
 npm run db:migrate     # creates ./.pglite and applies schema
 npm run db:seed        # demo data: 5 partners, 12 products, one purchase, two sales
-npm run user:password -- owner@chipssquare.in   # set a staff password
+npm run user:create -- you@example.com --role OWNER --generate   # first owner
+npm run user:password -- you@example.com                          # reset a password
 npm run dev            # http://localhost:3000
 ```
 
@@ -93,6 +94,8 @@ All routes are dynamic, so anything that works locally works deployed.
 | A sale was entered wrong | human error | void it (`voided_at` + `RETURN` movements); never delete the row |
 | Every page is 500 in production | `AUTH_SECRET` missing | it is required there (dev falls back silently); generate one with `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"` |
 | Staff cannot sign in | no `password_hash` on the row | `npm run user:password -- <email>` |
+| Nobody can sign in at all | no usable owner account | `npm run user:create -- you@example.com --role OWNER --generate`, or reset the owner with `npm run user:password` |
+| Stock number looks wrong | stale cache or a hand-written movement | open the product in `/admin/stock` and press "Rebuild count from ledger"; the ledger wins |
 | Locked out after 8 bad passwords | in-process throttle, 15-minute window | restart the server, or wait |
 | `relation "…" does not exist` | migration not applied | `npm run db:migrate` |
 

@@ -20,7 +20,11 @@ npm run dev             # http://localhost:3000
 ```
 
 Then sign in at `/login` as `owner@chipssquare.in` / `chips-demo-2026` (seed data only). No OAuth
-app, no email service — passwords are set with `npm run user:password -- <email>`.
+app, no email service. For your own first owner:
+
+```bash
+npm run user:create -- you@example.com --role OWNER --generate   # prints a password once
+```
 
 ## What works today
 
@@ -34,6 +38,7 @@ app, no email service — passwords are set with `npm run user:password -- <emai
 | `/login` | staff sign-in (email + password) |
 | `/admin` | guarded overview: stock value, today's takings, recent sales, low stock |
 | `/admin/products` | list, add (barcode → Open Food Facts prefill), edit, archive |
+| `/admin/stock` | on-hand list; per-product adjustments with a forced reason + ledger history |
 | `/admin/users` | owner-only: add admins/partners, set roles, reset passwords, revoke |
 
 Stock and prices come from the database, not fixtures. Every number is derived from an append-only

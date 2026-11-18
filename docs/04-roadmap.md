@@ -32,7 +32,9 @@ convenience features. Each phase ends with something you can actually use.
       Facts prefill, edit, archive/restore, duplicate detection (`brand+name+size`), live sell-price
       preview, frozen slugs.
 - [x] `/admin/users` (owner-only): add accounts, roles, generated passwords shown once, revoke.
-- [ ] `/admin/stock`: adjustment form (type, qty, **required note**) + movement history per product.
+- [x] `/admin/stock`: on-hand list with low/out/archived tabs, per-product adjustment form that
+      forces a reason (received-with-cost, damaged, expired, self-use, count fix), full movement
+      history with actor and note, and "rebuild count from ledger". Units are never typed directly.
 - [ ] Image upload pipeline → WebP, ≤100 KB, 1:1, served from own storage.
 - [ ] Bulk discount apply + CSV import (nice-to-have, not needed for the first 100 SKUs).
 

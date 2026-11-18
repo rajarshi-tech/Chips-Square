@@ -33,8 +33,8 @@ npm run db:migrate     # apply pending migrations
 npm run db:seed        # wipe + load demo data (5 partners, 12 products, 2 sales)
 npm run db:reset       # delete the local database entirely
 npm run db:studio      # drizzle studio
-npm run user:password -- <email>            # set/reset a staff password (prompts)
-npm run user:password -- <email> --generate # random password, printed once
+npm run user:create   -- <email> --role OWNER --generate   # first account / new people
+npm run user:password -- <email> [--generate]              # reset a password
 ```
 
 There is **no external database to install**. Without `DATABASE_URL`, everything runs on PGlite in
@@ -55,6 +55,7 @@ src/app/                     routes (App Router, server components by default)
   logout/actions.ts          sign out (a POST-style action, never a GET link)
   admin/                     guarded back office; layout.tsx is the guard + nav
     products/                list, create (barcode -> Open Food Facts), edit, archive
+    stock/                   on-hand list, per-product adjustment form + ledger history
     users/                   owner-only: add people, roles, passwords, revoke
 src/components/              presentational components (no DB access)
 src/lib/
@@ -66,6 +67,8 @@ src/lib/
   auth/session.ts            cookie <-> user, getSessionUser, requireUser, requireManager
   auth/throttle.ts           in-process login rate limit
   catalog-admin.ts           product writes: slug rules, duplicate guard, archive
+  stock-rules.ts             reason -> movement mapping (pure, tested); sets every sign
+  stock-admin.ts             stock reads + adjustStock, the single write path for units
   users-admin.ts             account writes: create, role, revoke, last-owner guard
   openfoodfacts.ts           barcode -> name/brand/size prefill (never the source of truth)
   queries/dashboard.ts       admin overview read model
@@ -127,8 +130,12 @@ covered in `docs/01-data-model.md`.
 15. **Products are archived, never deleted**, and a product's `slug` is frozen after creation — a
     rename must not break a shared link. Same-brand-same-name-same-size is rejected as a duplicate
     (unique index `products_identity_idx`); the error surfaces as `DuplicateProductError`.
-16. **Stock is never typed into the product form.** Creating a product leaves `on_hand` at 0; stock
-    arrives through a purchase or an adjustment, so every unit has a ledger entry.
+16. **Stock is never typed into the product form, and there is no bare "set quantity".** Creating a
+    product leaves `on_hand` at 0. Units move only through `adjustStock` (`src/lib/stock-admin.ts`),
+    which forces a reason: Received (PURCHASE + cost), Damaged/Expired/Self-use (note required), or
+    Count fix (ADJUSTMENT, note required, signed quantity). Signs are applied by `resolveMovement`,
+    never typed by hand, and the transaction refuses to go below zero. Writing a number directly
+    would break both the ledger and the settlement cost basis.
 17. **No reservations, holds, carts or online payments.** This was designed, built, then removed at
     the owner's request because it was solving the wrong problem. Read `docs/02 §1` before proposing
     anything adjacent. If pre-orders are ever genuinely needed, the only acceptable shape is
@@ -164,16 +171,15 @@ covered in `docs/01-data-model.md`.
 
 ## 7. Current state
 
-Phase 0 and the public half of Phase 1 are done: schema (21 tables), migrations, seed, money/UPI/
-inventory libraries with 25 tests, and a **read-only public shelf** (home, catalogue, product,
-how-it-works, working feedback form).
+**Public shelf** (read-only): home, catalogue, product, how-it-works, feedback form.
 
-Done: auth (email + password, signed session cookie, role guards, `/login`), `/admin` overview,
-`/admin/products` (list, create with barcode prefill, edit, archive/restore), `/admin/users`
-(owner-only: add people, set roles, reset passwords, revoke).
+**Back office**: `/login`, `/admin` overview, `/admin/products` (create with barcode prefill, edit,
+archive), `/admin/stock` (adjustments with a forced reason, ledger history, rebuild-from-ledger),
+`/admin/users` (owner-only: add people, roles, passwords, revoke). `npm run user:create` creates the
+first owner, because `/admin/users` needs one to open.
 
-Not built yet: stock adjustments, sales recording, purchases, cycles/settlement, feedback inbox. Those
-nav items are labelled "soon" rather than linked to a dead route.
+Not built yet: sales recording, purchases, cycles/settlement, feedback inbox. Those nav items are
+labelled "soon" rather than linked to a dead route.
 
 The product page shows stock and "ask at the counter" — no buy button, by design.
 

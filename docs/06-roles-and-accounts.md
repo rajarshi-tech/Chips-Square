@@ -33,7 +33,24 @@ Two owners is fine — that is the "what if the owner is on holiday" answer. The
 there is always **at least one owner with a password**: demoting or revoking the last one fails with
 `LastOwnerError`.
 
-## 3. How an owner adds an admin
+## 3. Creating the very first owner
+
+`/admin/users` needs an owner to open, so the first one comes from a terminal:
+
+```bash
+npm run user:create -- you@example.com --role OWNER --generate
+```
+
+It prints a 20-character password **once**. Sign in at `/login` with that email and password, then add
+everyone else from `/admin/users`.
+
+The seeded demo database already has `owner@chipssquare.in` / `chips-demo-2026`. That exists for local
+development only — do not carry it to production.
+
+Locked out later? `npm run user:password -- you@example.com --generate`. There is no email-based
+reset, by design: whoever can run a command on the server is already trusted with the database.
+
+## 4. How an owner adds an admin
 
 `/admin/users` (owner-only; the nav hides it for everyone else, and the route redirects):
 
@@ -47,7 +64,7 @@ for the owner: set a new one on the same screen. That is a deliberate trade — 
 token table would be more machinery than this club needs, and a reset email to a shared inbox is
 often worse than a human telling another human.
 
-## 4. Revoking access
+## 5. Revoking access
 
 "Revoke access" clears `users.password_hash`. The account row stays, because every historical
 `sales.created_by`, `voided_by` and settlement record must still resolve to a person. A revoked user
@@ -57,7 +74,7 @@ Sessions are valid for 7 days and are not individually revocable, so revocation 
 next sign-in attempt — clear the password, and also change it anywhere the person could log in
 immediately if it matters. Rotating `AUTH_SECRET` signs everyone out at once.
 
-## 5. Adding a partner (different thing)
+## 6. Adding a partner (different thing)
 
 A partner is **money**, not login. Partners live in their own table with `user_id` optional:
 
@@ -66,7 +83,7 @@ A partner is **money**, not login. Partners live in their own table with `user_i
 - `default_share_pct` is only a default; `purchase_shares` stores the percentage actually used at the
   time of the purchase, so adding a sixth partner never rewrites the first five settlements.
 
-## 6. Rules a future change must not break
+## 7. Rules a future change must not break
 
 1. `requireOwner()` on every account management page **and** action. A layout guard does not protect a
    server action.
@@ -75,3 +92,6 @@ A partner is **money**, not login. Partners live in their own table with `user_i
 4. Never add self-service signup. Accounts are created deliberately, in person.
 5. Never widen `ADMIN` to "can close cycles" without deciding, in writing, who is accountable for the
    split.
+6. The terminal scripts (`npm run user:*`) exist for setup and lockouts. They are not a second admin
+   path: they call the same `src/lib/users-admin.ts` functions as the UI, including the last-owner
+   guard.
