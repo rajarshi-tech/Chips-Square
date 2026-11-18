@@ -18,13 +18,8 @@ export type SettingsDto = {
   supportPhone: string | null;
   supportEmail: string | null;
   termsText: string | null;
-  holdTtlMinutes: number;
-  maxActiveHoldsPerUser: number;
-  scarceThreshold: number;
-  noShowLimit: number;
-  cooldownDays: number;
-  unclaimedCancelDays: number;
   showExactStock: boolean;
+  hideOutOfStock: boolean;
 };
 
 export const DEFAULT_SETTINGS: SettingsDto = {
@@ -35,13 +30,8 @@ export const DEFAULT_SETTINGS: SettingsDto = {
   supportPhone: null,
   supportEmail: null,
   termsText: null,
-  holdTtlMinutes: 12,
-  maxActiveHoldsPerUser: 2,
-  scarceThreshold: 5,
-  noShowLimit: 2,
-  cooldownDays: 7,
-  unclaimedCancelDays: 7,
   showExactStock: true,
+  hideOutOfStock: false,
 };
 
 export const getSettings = cache(async (): Promise<SettingsDto> => {
@@ -56,13 +46,8 @@ export const getSettings = cache(async (): Promise<SettingsDto> => {
       supportPhone: row.supportPhone,
       supportEmail: row.supportEmail,
       termsText: row.termsText,
-      holdTtlMinutes: row.holdTtlMinutes,
-      maxActiveHoldsPerUser: row.maxActiveHoldsPerUser,
-      scarceThreshold: row.scarceThreshold,
-      noShowLimit: row.noShowLimit,
-      cooldownDays: row.cooldownDays,
-      unclaimedCancelDays: row.unclaimedCancelDays,
       showExactStock: row.showExactStock,
+      hideOutOfStock: row.hideOutOfStock,
     };
   } catch {
     // Table not migrated yet, or the DB is unreachable — render with defaults.

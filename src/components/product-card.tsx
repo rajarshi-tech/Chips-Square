@@ -28,7 +28,7 @@ export function ProductCard({ product }: { product: ProductCardDto }) {
         <h3 className="line-clamp-2 text-sm font-medium leading-snug">{product.name}</h3>
         <Price mrpPaise={product.mrpPaise} sellPaise={product.sellPaise} size="sm" />
         <div className="mt-auto pt-1.5">
-          <StockBadge available={product.available} onHand={product.onHand} />
+          <StockBadge onHand={product.onHand} />
         </div>
       </div>
     </Link>

@@ -8,6 +8,7 @@ export * from "./catalog";
 export * from "./purchasing";
 export * from "./stock";
 export * from "./sales";
+export * from "./payments";
 export * from "./settlement";
 export * from "./feedback";
 export * from "./system";

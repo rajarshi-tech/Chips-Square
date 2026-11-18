@@ -1,5 +1,5 @@
 {
-  "id": "96dd2ae5-683b-4f35-a2b4-aa6a9628a873",
+  "id": "ea8bd440-faf9-4302-a87a-e69bde798d7e",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -608,19 +608,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'CUSTOMER'"
-        },
-        "no_show_count": {
-          "name": "no_show_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "banned_until": {
-          "name": "banned_until",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
         },
         "created_at": {
           "name": "created_at",
@@ -1304,8 +1291,8 @@
           "primaryKey": false,
           "notNull": false
         },
-        "order_id": {
-          "name": "order_id",
+        "sale_id": {
+          "name": "sale_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
@@ -1352,11 +1339,11 @@
           "method": "btree",
           "with": {}
         },
-        "stock_movements_order_idx": {
-          "name": "stock_movements_order_idx",
+        "stock_movements_sale_idx": {
+          "name": "stock_movements_sale_idx",
           "columns": [
             {
-              "expression": "order_id",
+              "expression": "sale_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1417,8 +1404,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.order_items": {
-      "name": "order_items",
+    "public.sale_items": {
+      "name": "sale_items",
       "schema": "",
       "columns": {
         "id": {
@@ -1428,8 +1415,8 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "order_id": {
-          "name": "order_id",
+        "sale_id": {
+          "name": "sale_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
@@ -1466,11 +1453,11 @@
         }
       },
       "indexes": {
-        "order_items_unique_idx": {
-          "name": "order_items_unique_idx",
+        "sale_items_unique_idx": {
+          "name": "sale_items_unique_idx",
           "columns": [
             {
-              "expression": "order_id",
+              "expression": "sale_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1487,8 +1474,8 @@
           "method": "btree",
           "with": {}
         },
-        "order_items_product_idx": {
-          "name": "order_items_product_idx",
+        "sale_items_product_idx": {
+          "name": "sale_items_product_idx",
           "columns": [
             {
               "expression": "product_id",
@@ -1504,12 +1491,12 @@
         }
       },
       "foreignKeys": {
-        "order_items_order_id_orders_id_fk": {
-          "name": "order_items_order_id_orders_id_fk",
-          "tableFrom": "order_items",
-          "tableTo": "orders",
+        "sale_items_sale_id_sales_id_fk": {
+          "name": "sale_items_sale_id_sales_id_fk",
+          "tableFrom": "sale_items",
+          "tableTo": "sales",
           "columnsFrom": [
-            "order_id"
+            "sale_id"
           ],
           "columnsTo": [
             "id"
@@ -1517,9 +1504,9 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "order_items_product_id_products_id_fk": {
-          "name": "order_items_product_id_products_id_fk",
-          "tableFrom": "order_items",
+        "sale_items_product_id_products_id_fk": {
+          "name": "sale_items_product_id_products_id_fk",
+          "tableFrom": "sale_items",
           "tableTo": "products",
           "columnsFrom": [
             "product_id"
@@ -1537,8 +1524,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.orders": {
-      "name": "orders",
+    "public.sales": {
+      "name": "sales",
       "schema": "",
       "columns": {
         "id": {
@@ -1554,19 +1541,18 @@
           "primaryKey": false,
           "notNull": true
         },
-        "user_id": {
-          "name": "user_id",
+        "cycle_id": {
+          "name": "cycle_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
-        "status": {
-          "name": "status",
-          "type": "order_status",
-          "typeSchema": "public",
+        "sold_at": {
+          "name": "sold_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true,
-          "default": "'HOLD'"
+          "default": "now()"
         },
         "subtotal_paise": {
           "name": "subtotal_paise",
@@ -1587,62 +1573,46 @@
           "primaryKey": false,
           "notNull": true
         },
-        "hold_expires_at": {
-          "name": "hold_expires_at",
-          "type": "timestamp with time zone",
+        "method": {
+          "name": "method",
+          "type": "payment_method",
+          "typeSchema": "public",
           "primaryKey": false,
-          "notNull": true
+          "notNull": true,
+          "default": "'CASH'"
         },
-        "declared_utr": {
-          "name": "declared_utr",
+        "buyer_name": {
+          "name": "buyer_name",
           "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "pickup_code": {
-          "name": "pickup_code",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "paid_at": {
-          "name": "paid_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "ready_at": {
-          "name": "ready_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "fulfilled_at": {
-          "name": "fulfilled_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "closed_reason": {
-          "name": "closed_reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "cycle_id": {
-          "name": "cycle_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "terms_accepted_at": {
-          "name": "terms_accepted_at",
-          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },
         "note": {
           "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "voided_at": {
+          "name": "voided_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "voided_by": {
+          "name": "voided_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "void_reason": {
+          "name": "void_reason",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -1656,53 +1626,32 @@
         }
       },
       "indexes": {
-        "orders_user_idx": {
-          "name": "orders_user_idx",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "orders_status_expiry_idx": {
-          "name": "orders_status_expiry_idx",
-          "columns": [
-            {
-              "expression": "status",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "hold_expires_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "orders_cycle_idx": {
-          "name": "orders_cycle_idx",
+        "sales_cycle_idx": {
+          "name": "sales_cycle_idx",
           "columns": [
             {
               "expression": "cycle_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "sold_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "sales_sold_at_idx": {
+          "name": "sales_sold_at_idx",
+          "columns": [
+            {
+              "expression": "sold_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1715,22 +1664,9 @@
         }
       },
       "foreignKeys": {
-        "orders_user_id_users_id_fk": {
-          "name": "orders_user_id_users_id_fk",
-          "tableFrom": "orders",
-          "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "orders_cycle_id_cycles_id_fk": {
-          "name": "orders_cycle_id_cycles_id_fk",
-          "tableFrom": "orders",
+        "sales_cycle_id_cycles_id_fk": {
+          "name": "sales_cycle_id_cycles_id_fk",
+          "tableFrom": "sales",
           "tableTo": "cycles",
           "columnsFrom": [
             "cycle_id"
@@ -1744,8 +1680,8 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "orders_code_unique": {
-          "name": "orders_code_unique",
+        "sales_code_unique": {
+          "name": "sales_code_unique",
           "nullsNotDistinct": false,
           "columns": [
             "code"
@@ -1800,12 +1736,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "gateway_payment_id": {
-          "name": "gateway_payment_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "status": {
           "name": "status",
           "type": "payment_status",
@@ -1813,12 +1743,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'PENDING'"
-        },
-        "order_id": {
-          "name": "order_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
         },
         "purchase_share_id": {
           "name": "purchase_share_id",
@@ -1880,21 +1804,6 @@
           "method": "btree",
           "with": {}
         },
-        "payments_gateway_unique": {
-          "name": "payments_gateway_unique",
-          "columns": [
-            {
-              "expression": "gateway_payment_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "payments_status_idx": {
           "name": "payments_status_idx",
           "columns": [
@@ -1916,11 +1825,11 @@
           "method": "btree",
           "with": {}
         },
-        "payments_order_idx": {
-          "name": "payments_order_idx",
+        "payments_purchase_share_idx": {
+          "name": "payments_purchase_share_idx",
           "columns": [
             {
-              "expression": "order_id",
+              "expression": "purchase_share_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1933,19 +1842,6 @@
         }
       },
       "foreignKeys": {
-        "payments_order_id_orders_id_fk": {
-          "name": "payments_order_id_orders_id_fk",
-          "tableFrom": "payments",
-          "tableTo": "orders",
-          "columnsFrom": [
-            "order_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
         "payments_purchase_share_id_purchase_shares_id_fk": {
           "name": "payments_purchase_share_id_purchase_shares_id_fk",
           "tableFrom": "payments",
@@ -1970,152 +1866,6 @@
             "id"
           ],
           "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.waitlist_entries": {
-      "name": "waitlist_entries",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "product_id": {
-          "name": "product_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "qty": {
-          "name": "qty",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 1
-        },
-        "position": {
-          "name": "position",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "offered_at": {
-          "name": "offered_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "offer_expires_at": {
-          "name": "offer_expires_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "fulfilled_at": {
-          "name": "fulfilled_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "cancelled_at": {
-          "name": "cancelled_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "waitlist_unique_idx": {
-          "name": "waitlist_unique_idx",
-          "columns": [
-            {
-              "expression": "product_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "waitlist_queue_idx": {
-          "name": "waitlist_queue_idx",
-          "columns": [
-            {
-              "expression": "product_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "position",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "waitlist_entries_product_id_products_id_fk": {
-          "name": "waitlist_entries_product_id_products_id_fk",
-          "tableFrom": "waitlist_entries",
-          "tableTo": "products",
-          "columnsFrom": [
-            "product_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "waitlist_entries_user_id_users_id_fk": {
-          "name": "waitlist_entries_user_id_users_id_fk",
-          "tableFrom": "waitlist_entries",
-          "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
@@ -2575,54 +2325,19 @@
           "primaryKey": false,
           "notNull": false
         },
-        "hold_ttl_minutes": {
-          "name": "hold_ttl_minutes",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 12
-        },
-        "max_active_holds_per_user": {
-          "name": "max_active_holds_per_user",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 2
-        },
-        "scarce_threshold": {
-          "name": "scarce_threshold",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 5
-        },
-        "no_show_limit": {
-          "name": "no_show_limit",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 2
-        },
-        "cooldown_days": {
-          "name": "cooldown_days",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 7
-        },
-        "unclaimed_cancel_days": {
-          "name": "unclaimed_cancel_days",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 7
-        },
         "show_exact_stock": {
           "name": "show_exact_stock",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true,
           "default": true
+        },
+        "hide_out_of_stock": {
+          "name": "hide_out_of_stock",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "updated_at": {
           "name": "updated_at",
@@ -2701,20 +2416,6 @@
         "FAILED"
       ]
     },
-    "public.order_status": {
-      "name": "order_status",
-      "schema": "public",
-      "values": [
-        "HOLD",
-        "PAYMENT_PENDING",
-        "PAID",
-        "READY",
-        "FULFILLED",
-        "CANCELLED",
-        "EXPIRED",
-        "REFUNDED"
-      ]
-    },
     "public.payment_direction": {
       "name": "payment_direction",
       "schema": "public",
@@ -2727,19 +2428,16 @@
       "name": "payment_kind",
       "schema": "public",
       "values": [
-        "CUSTOMER_RECEIPT",
         "PARTNER_CONTRIBUTION",
-        "PARTNER_PAYOUT",
-        "REFUND"
+        "PARTNER_PAYOUT"
       ]
     },
     "public.payment_method": {
       "name": "payment_method",
       "schema": "public",
       "values": [
-        "UPI_MANUAL",
-        "UPI_GATEWAY",
         "CASH",
+        "UPI",
         "BANK_TRANSFER"
       ]
     },

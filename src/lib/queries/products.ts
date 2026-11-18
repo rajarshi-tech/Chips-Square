@@ -1,14 +1,14 @@
 import { and, asc, desc, eq, ilike, isNull, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { products } from "@/db/schema";
-import { getStockRows } from "@/lib/inventory";
+import { products, stockLevels } from "@/db/schema";
+import { getStockLevels } from "@/lib/inventory";
 import { computeSellPrice, savingPaise, savingPercent, toNumber } from "@/lib/money";
 
 /**
  * Read model for the storefront.
  *
  * Pages must never touch raw tables: they consume these DTOs, which already carry the derived
- * selling price, the saving, and live availability. One shape for the grid, the detail page and
+ * selling price, the saving, and live on-hand stock. One shape for the grid, the detail page and
  * (later) the admin list.
  */
 
@@ -25,15 +25,13 @@ export type ProductCardDto = {
   sellPaise: number;
   savingPaise: number;
   savingPct: number;
-  /** Physically in the shop. */
+  /** Physically on the shelf. There are no reservations, so this is the whole truth. */
   onHand: number;
-  /** onHand minus open reservations. This is what can be reserved. */
-  available: number;
 };
 
 type ProductRow = typeof products.$inferSelect;
 
-function toDto(row: ProductRow, stock: { onHand: number; available: number }): ProductCardDto {
+function toDto(row: ProductRow, onHand: number): ProductCardDto {
   const sellPaise = computeSellPrice({
     mrpPaise: row.mrpPaise,
     discountPct: row.discountPct,
@@ -53,8 +51,7 @@ function toDto(row: ProductRow, stock: { onHand: number; available: number }): P
     sellPaise,
     savingPaise: savingPaise(row.mrpPaise, sellPaise),
     savingPct: savingPercent(row.mrpPaise, sellPaise),
-    onHand: stock.onHand,
-    available: stock.available,
+    onHand,
   };
 }
 
@@ -97,17 +94,15 @@ export async function listProducts(opts: ListProductsOptions = {}): Promise<Prod
 
   if (rows.length === 0) return [];
 
-  const stock = await getStockRows(
+  const stock = await getStockLevels(
     db,
     rows.map((r) => r.id),
   );
-  const stockById = new Map(stock.map((s) => [s.productId, s]));
+  const onHandById = new Map(stock.map((s) => [s.productId, s.onHand]));
 
-  const dtos = rows.map((row) =>
-    toDto(row, stockById.get(row.id) ?? { onHand: 0, available: 0 }),
-  );
+  const dtos = rows.map((row) => toDto(row, onHandById.get(row.id) ?? 0));
 
-  return opts.inStockOnly ? dtos.filter((d) => d.available > 0) : dtos;
+  return opts.inStockOnly ? dtos.filter((d) => d.onHand > 0) : dtos;
 }
 
 export async function getProductBySlug(slug: string): Promise<ProductCardDto | null> {
@@ -118,8 +113,8 @@ export async function getProductBySlug(slug: string): Promise<ProductCardDto | n
     .limit(1);
   if (!row) return null;
 
-  const [stock] = await getStockRows(db, [row.id]);
-  return toDto(row, stock ?? { onHand: 0, available: 0 });
+  const [stock] = await getStockLevels(db, [row.id]);
+  return toDto(row, stock?.onHand ?? 0);
 }
 
 /** For "you may also like" on the product page. */
@@ -140,12 +135,12 @@ export async function relatedProducts(
     .orderBy(desc(products.discountPct))
     .limit(limit);
 
-  const stock = await getStockRows(
+  const stock = await getStockLevels(
     db,
     rows.map((r) => r.id),
   );
-  const stockById = new Map(stock.map((s) => [s.productId, s]));
-  return rows.map((r) => toDto(r, stockById.get(r.id) ?? { onHand: 0, available: 0 }));
+  const onHandById = new Map(stock.map((s) => [s.productId, s.onHand]));
+  return rows.map((r) => toDto(r, onHandById.get(r.id) ?? 0));
 }
 
 export type CategoryCount = { category: string; count: number };
@@ -166,8 +161,12 @@ export async function listCategories(): Promise<CategoryCount[]> {
     .map((r) => ({ category: r.category, count: toNumber(r.count) }));
 }
 
-/** Headline numbers for the home page trust strip. */
-export async function catalogStats(): Promise<{ products: number; maxDiscount: number }> {
+/** Headline numbers for the home page. */
+export async function catalogStats(): Promise<{
+  products: number;
+  maxDiscount: number;
+  unitsOnHand: number;
+}> {
   const [row] = await db
     .select({
       products: sql<number>`count(*)`.mapWith(Number),
@@ -176,5 +175,15 @@ export async function catalogStats(): Promise<{ products: number; maxDiscount: n
     .from(products)
     .where(eq(products.isActive, true));
 
-  return { products: row?.products ?? 0, maxDiscount: Math.round(row?.maxDiscount ?? 0) };
+  const [stock] = await db
+    .select({
+      units: sql<number>`coalesce(sum(greatest(${stockLevels.onHand}, 0)), 0)`.mapWith(Number),
+    })
+    .from(stockLevels);
+
+  return {
+    products: row?.products ?? 0,
+    maxDiscount: Math.round(row?.maxDiscount ?? 0),
+    unitsOnHand: stock?.units ?? 0,
+  };
 }

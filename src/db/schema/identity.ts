@@ -1,11 +1,13 @@
 import { relations } from "drizzle-orm";
-import { boolean, date, integer, numeric, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, date, numeric, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { userRole } from "./enums";
 
 /**
  * Identity.
  *
- * Customers, admins and partners are all `users`; the `role` column gates the app.
+ * `CUSTOMER` is now a read-only role: they browse stock and submit feedback, nothing else.
+ * Admins manage inventory; partners see the money side.
+ *
  * A `partners` row is the *financial* identity (someone who owns a share of the pool) and is
  * optional-but-usually-linked to a user. This split lets you add a partner who never logs in.
  */
@@ -16,10 +18,6 @@ export const users = pgTable("users", {
   phone: text("phone").unique(),
   name: text("name"),
   role: userRole("role").notNull().default("CUSTOMER"),
-  /** Incremented on every expired/unpaid reservation. Drives the prepay-only gate. */
-  noShowCount: integer("no_show_count").notNull().default(0),
-  /** While set, the user cannot create new reservations (see docs/02 §3). */
-  bannedUntil: timestamp("banned_until", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

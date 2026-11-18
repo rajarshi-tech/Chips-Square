@@ -3,7 +3,7 @@ import { getSettings } from "@/lib/settings";
 
 export const metadata = {
   title: "How it works",
-  description: "How the buying club prices, holds and hands over stock.",
+  description: "How the buying club prices its stock and keeps the shelf count honest.",
 };
 
 export default async function HowItWorksPage() {
@@ -13,9 +13,9 @@ export default async function HowItWorksPage() {
     <div className="mx-auto max-w-2xl px-4 py-12">
       <h1 className="text-3xl font-semibold tracking-tight">How this works</h1>
       <p className="mt-3 text-base leading-relaxed text-ink-soft">
-        Chips Square is not a shop with a warehouse. It is a handful of people who buy in bulk when
-        the discounts are deep, and share the pack at a fair price. That is why the prices are low
-        and why everything is reservation-based.
+        {s.shopName} is not a shop with a warehouse. It is a few people who buy in bulk when the
+        discounts are deep, and share the pack at a fair price. That is why the prices are low — and
+        why the shelf, not a checkout, is the point of this site.
       </p>
 
       <div className="mt-10 space-y-8">
@@ -31,55 +31,46 @@ export default async function HowItWorksPage() {
           </p>
         </Section>
 
-        <Section title={`Reserving (holds ${s.holdTtlMinutes} minutes)`}>
+        <Section title="The stock you see">
           <p>
-            Reserving takes an item off the shelf for you for {s.holdTtlMinutes} minutes. That is the
-            window to pay — long enough to open UPI, short enough that nobody can sit on stock they
-            do not intend to buy.
+            The count on each item is the number physically on the shelf. It drops the moment a sale
+            is recorded and goes back up when a new bulk order arrives. There is no separate
+            &ldquo;available online&rdquo; number, because there is no online booking — what you see is
+            what is there.
           </p>
           <p>
-            When the window closes without a payment, the item goes back on the shelf automatically.
-            Your reservation disappears; you are not charged anything.
-          </p>
-        </Section>
-
-        <Section title="Paying">
-          <p>
-            Payment is UPI: you send the exact amount shown, and we verify it against our bank
-            statement using the reference number (UTR) from your app. A screenshot alone is not
-            accepted, because screenshots can be edited and references cannot.
-          </p>
-          <p>
-            The item is yours once the payment is verified. You get a pickup code at that point.
+            If an item shows <strong>Out of stock</strong>, we have run out and will pick it up on the
+            next order. Ask for it through the request form and it moves up the list.
           </p>
         </Section>
 
-        <Section title="Collecting">
+        <Section title="Buying">
           <p>
-            Show the pickup code at the counter and take the item. If you cannot collect within{" "}
-            {s.unclaimedCancelDays} days, the reservation is cancelled and refunded as store credit
-            so the stock is not stuck behind an unclaimed order.
+            There is no cart and no account to create. Find what you want, come to the counter, and
+            pay by cash or UPI. Your sale is recorded against the current batch, which is how the
+            books stay straight and how the profit at the end of a batch is worked out.
+          </p>
+          <p>
+            Prices include applicable taxes. We do not do delivery.
           </p>
         </Section>
 
-        <Section title="Fair use">
+        <Section title="Returns">
           <p>
-            You can hold at most {s.maxActiveHoldsPerUser} reservations at a time.
-            {" "}{s.noShowLimit} expired reservations and new reservations need payment up front for{" "}
-            {s.cooldownDays} days. This is not aimed at anyone in particular — it keeps the shelf
-            honest for everyone.
-          </p>
-          <p>
-            If an item is down to its last few units, it moves to a queue instead of an open hold, so
-            one person cannot block the rest.
+            No returns on opened food items. If something is damaged or past its date, tell us before
+            you leave the counter and we will replace it or refund it on the spot.
           </p>
         </Section>
 
-        <Section title="What we do not do">
+        <Section title="Where the money goes">
           <p>
-            No delivery. No returns on opened food items. No holding stock without payment. If
-            something arrives damaged, tell us before you leave the counter and we will replace or
-            refund it.
+            This is a buying club, so the money is transparent by design. Partners put in the cost of
+            each bulk order in equal shares. When the batch is sold, the profit — sales minus what
+            the stock cost, minus things like transport — is split between them and paid out.
+          </p>
+          <p>
+            That is why nothing here is priced to squeeze margin: the point is to make good buying
+            pay for itself, not to run a shopfront.
           </p>
         </Section>
       </div>

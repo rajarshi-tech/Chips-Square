@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ProductCard } from "@/components/product-card";
 import { listCategories, listProducts } from "@/lib/queries/products";
+import { getSettings } from "@/lib/settings";
 
 type CatalogSearch = { q?: string; category?: string; sort?: string };
 
@@ -32,8 +33,14 @@ export default async function CatalogPage({
   searchParams: Promise<CatalogSearch>;
 }) {
   const current = await searchParams;
+  const settings = await getSettings();
   const [items, categories] = await Promise.all([
-    listProducts({ q: current.q, category: current.category, sort: current.sort }),
+    listProducts({
+      q: current.q,
+      category: current.category,
+      sort: current.sort,
+      inStockOnly: settings.hideOutOfStock,
+    }),
     listCategories(),
   ]);
 

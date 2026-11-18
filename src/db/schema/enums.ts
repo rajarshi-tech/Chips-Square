@@ -2,8 +2,7 @@ import { pgEnum } from "drizzle-orm/pg-core";
 
 /**
  * All enums live here so migrations stay stable and every table imports from one place.
- * Adding a value to a pgEnum requires a migration that recreates the type — see
- * docs/05-runbook.md "changing an enum".
+ * Adding a value to a pgEnum needs its own migration — see docs/05-runbook.md "changing an enum".
  */
 
 export const userRole = pgEnum("user_role", ["CUSTOMER", "PARTNER", "ADMIN", "OWNER"]);
@@ -35,29 +34,13 @@ export const stockMovementType = pgEnum("stock_movement_type", [
   "ADJUSTMENT",
 ]);
 
-export const orderStatus = pgEnum("order_status", [
-  "HOLD",
-  "PAYMENT_PENDING",
-  "PAID",
-  "READY",
-  "FULFILLED",
-  "CANCELLED",
-  "EXPIRED",
-  "REFUNDED",
-]);
+/** How money actually changed hands at the counter, or between partners. */
+export const paymentMethod = pgEnum("payment_method", ["CASH", "UPI", "BANK_TRANSFER"]);
 
+/** Only partner money movement is tracked as a payment. Counter sales carry their own method. */
 export const paymentKind = pgEnum("payment_kind", [
-  "CUSTOMER_RECEIPT",
   "PARTNER_CONTRIBUTION",
   "PARTNER_PAYOUT",
-  "REFUND",
-]);
-
-export const paymentMethod = pgEnum("payment_method", [
-  "UPI_MANUAL",
-  "UPI_GATEWAY",
-  "CASH",
-  "BANK_TRANSFER",
 ]);
 
 export const paymentDirection = pgEnum("payment_direction", ["IN", "OUT"]);

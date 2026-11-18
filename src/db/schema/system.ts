@@ -20,19 +20,10 @@ export const settings = pgTable("settings", {
   supportEmail: text("support_email"),
   termsText: text("terms_text"),
 
-  /** Minutes an unpaid reservation holds stock. */
-  holdTtlMinutes: integer("hold_ttl_minutes").notNull().default(12),
-  /** Max simultaneous HOLD/PAYMENT_PENDING orders per user. */
-  maxActiveHoldsPerUser: integer("max_active_holds_per_user").notNull().default(2),
-  /** Below or equal this on-hand quantity, reserving requires paying first. */
-  scarceThreshold: integer("scarce_threshold").notNull().default(5),
-  /** No-shows before the account is forced into pay-first mode. */
-  noShowLimit: integer("no_show_limit").notNull().default(2),
-  cooldownDays: integer("cooldown_days").notNull().default(7),
-  /** Days after payment before an uncollected order is cancelled. */
-  unclaimedCancelDays: integer("unclaimed_cancel_days").notNull().default(7),
-  /** Show exact stock counts publicly, or only In stock / Low / Out. */
+  /** Show exact stock counts on the public shelf, or only In stock / Low / Out. */
   showExactStock: boolean("show_exact_stock").notNull().default(true),
+  /** Hide anything with zero stock from the public shelf instead of showing "out of stock". */
+  hideOutOfStock: boolean("hide_out_of_stock").notNull().default(false),
 
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

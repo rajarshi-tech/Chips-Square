@@ -17,6 +17,8 @@ import { purchases } from "./purchasing";
  *
  *   on_hand(product) = SUM(qty_delta)
  *
+ * There are no reservations, so on_hand IS the number a customer sees. No derived "available".
+ *
  * Rules (enforced in src/lib/inventory.ts, documented in docs/01-data-model.md §5):
  *   - never UPDATE, never DELETE. A correction is a new opposite movement.
  *   - DAMAGE / EXPIRY / SELF_USE / ADJUSTMENT require a note.
@@ -35,15 +37,15 @@ export const stockMovements = pgTable(
     qtyDelta: integer("qty_delta").notNull(),
     unitCostPaise: integer("unit_cost_paise"),
     purchaseId: uuid("purchase_id").references(() => purchases.id, { onDelete: "restrict" }),
-    /** orders.id — plain column, no FK, to keep schema modules acyclic. */
-    orderId: uuid("order_id"),
+    /** sales.id — plain column, no FK, to keep schema modules acyclic. */
+    saleId: uuid("sale_id"),
     note: text("note"),
     createdBy: uuid("created_by"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
     index("stock_movements_product_idx").on(t.productId, t.createdAt),
-    index("stock_movements_order_idx").on(t.orderId),
+    index("stock_movements_sale_idx").on(t.saleId),
     index("stock_movements_purchase_idx").on(t.purchaseId),
   ],
 );

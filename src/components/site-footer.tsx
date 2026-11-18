@@ -20,8 +20,8 @@ export function SiteFooter({
           <div className="max-w-sm space-y-2">
             <p className="font-semibold text-ink">{storeName}</p>
             <p className="leading-relaxed">
-              A small buying club. We pool orders straight from quick-commerce discounts, so the
-              pack you want costs less than it does in the app.
+              A small buying club. We pool orders straight from quick-commerce discounts and pass
+              the pack on below MRP. Stock counts here are live.
             </p>
           </div>
 

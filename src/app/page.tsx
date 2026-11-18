@@ -4,10 +4,10 @@ import { catalogStats, listProducts } from "@/lib/queries/products";
 import { getSettings } from "@/lib/settings";
 
 export default async function HomePage() {
-  const [featured, stats, settings] = await Promise.all([
-    listProducts({ limit: 8, sort: "discount" }),
+  const settings = await getSettings();
+  const [featured, stats] = await Promise.all([
+    listProducts({ limit: 8, sort: "discount", inStockOnly: settings.hideOutOfStock }),
     catalogStats(),
-    getSettings(),
   ]);
 
   return (
@@ -16,7 +16,7 @@ export default async function HomePage() {
         <div className="mx-auto max-w-5xl px-4 py-14 sm:py-20">
           <p className="mb-3 inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-medium text-ink-soft ring-1 ring-line">
             <span className="size-1.5 rounded-full bg-ok" />
-            {stats.products} items in stock right now
+            {stats.products} items · {stats.unitsOnHand} units in stock
           </p>
 
           <h1 className="max-w-2xl text-4xl font-semibold leading-[1.1] tracking-tight sm:text-5xl">
@@ -27,8 +27,8 @@ export default async function HomePage() {
 
           <p className="mt-4 max-w-xl text-base leading-relaxed text-ink-soft">
             We buy in bulk when the quick-commerce discounts are deep, and pass the pack on at MRP
-            minus up to {stats.maxDiscount}%. No delivery fee, no minimum order — you reserve it,
-            you collect it.
+            minus up to {stats.maxDiscount}%. This page is the live shelf: what you see here is what
+            is physically available right now.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
@@ -36,7 +36,7 @@ export default async function HomePage() {
               href="/catalog"
               className="inline-flex h-11 items-center rounded-xl bg-ink px-5 text-sm font-medium text-cream transition-colors hover:bg-ink/90"
             >
-              Browse the shelf
+              See what&apos;s in stock
             </Link>
             <Link
               href="/how-it-works"
@@ -71,18 +71,18 @@ export default async function HomePage() {
         <div className="mx-auto grid max-w-5xl gap-8 px-4 py-12 sm:grid-cols-3">
           <Step
             n="1"
-            title="Reserve what you want"
-            body="Pick the pack. It is held for you for a few minutes while you pay by UPI."
+            title="We buy in bulk"
+            body="When a quick-commerce discount is deep, a partner places one large order instead of twenty small ones."
           />
           <Step
             n="2"
-            title="Pay by UPI, we verify"
-            body="Scan the code, send the exact amount. We confirm it against our statement — no screenshots needed."
+            title="The saving is passed on"
+            body="Each item is priced at MRP minus a discount we set per product. No delivery fee, no handling charge."
           />
           <Step
             n="3"
-            title="Collect it"
-            body={`Show your pickup code at the counter. Unclaimed reservations are refunded as store credit after ${settings.unclaimedCancelDays} days.`}
+            title="You check the shelf, then collect"
+            body="Stock on this site is updated as items are sold, so you know before you walk over."
           />
         </div>
       </section>

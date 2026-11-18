@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { eq, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { db } from "../src/db";
 import {
   auditLog,
@@ -8,8 +8,6 @@ import {
   feedback,
   feedbackVotes,
   notificationLog,
-  orderItems,
-  orders,
   partners,
   payments,
   productImages,
@@ -17,17 +15,18 @@ import {
   purchaseItems,
   purchaseShares,
   purchases,
+  saleItems,
+  sales,
   settlementShares,
   settlements,
   settings,
   stockLevels,
   stockMovements,
   users,
-  waitlistEntries,
 } from "../src/db/schema";
-import { newOrderCode, newPickupCode, slugify } from "../src/lib/codes";
+import { slugify } from "../src/lib/codes";
 import { recordMovement } from "../src/lib/inventory";
-import { computeSellPrice, pctOf, splitEvenly } from "../src/lib/money";
+import { computeSellPrice, splitEvenly } from "../src/lib/money";
 
 /**
  * Seed a realistic demo dataset so every screen has something in it and the split maths is
@@ -40,7 +39,6 @@ import { computeSellPrice, pctOf, splitEvenly } from "../src/lib/money";
 
 const DAY = 24 * 60 * 60 * 1000;
 const ago = (days: number) => new Date(Date.now() - days * DAY);
-const soon = (minutes: number) => new Date(Date.now() + minutes * 60 * 1000);
 /** `date` columns take a YYYY-MM-DD string, not a Date. */
 const dayAgo = (days: number) => ago(days).toISOString().slice(0, 10);
 
@@ -68,9 +66,8 @@ async function truncateAll() {
   await db.delete(feedbackVotes);
   await db.delete(feedback);
   await db.delete(payments);
-  await db.delete(orderItems);
-  await db.delete(waitlistEntries);
-  await db.delete(orders);
+  await db.delete(saleItems);
+  await db.delete(sales);
   await db.delete(settlementShares);
   await db.delete(settlements);
   await db.delete(stockLevels);
@@ -103,27 +100,23 @@ async function main() {
     upiPayeeName: "Chips Square",
     shopName: "Chips Square",
     supportEmail: "ops@chipssquare.in",
-    holdTtlMinutes: 12,
-    maxActiveHoldsPerUser: 2,
-    noShowLimit: 2,
-    unclaimedCancelDays: 7,
-    termsText:
-      "A reservation holds the item for 15 minutes. The item is yours only once payment is verified against our UPI statement. Unpaid reservations expire automatically. Collect within 7 days.",
+    showExactStock: true,
+    hideOutOfStock: false,
   });
 
   console.log("→ users + partners");
-  const ownerRows = await db
+  const userRows = await db
     .insert(users)
     .values([
       { email: "owner@chipssquare.in", name: "Owner", phone: "+919000000001", role: "OWNER" },
+      { email: "staff@chipssquare.in", name: "Shop Staff", phone: "+919000000002", role: "ADMIN" },
       { email: "customer@example.com", name: "Priya Customer", phone: "+919000000099", role: "CUSTOMER" },
-      { email: "flaky@example.com", name: "Rahul Flaky", phone: "+919000000098", role: "CUSTOMER", noShowCount: 2 },
     ])
     .returning({ id: users.id, email: users.email });
 
-  const ownerId = ownerRows.find((u) => u.email === "owner@chipssquare.in")!.id;
-  const customerId = ownerRows.find((u) => u.email === "customer@example.com")!.id;
-  const flakyId = ownerRows.find((u) => u.email === "flaky@example.com")!.id;
+  const ownerId = userRows.find((u) => u.email === "owner@chipssquare.in")!.id;
+  const staffId = userRows.find((u) => u.email === "staff@chipssquare.in")!.id;
+  const customerId = userRows.find((u) => u.email === "customer@example.com")!.id;
 
   const partnerRows = await db
     .insert(partners)
@@ -155,7 +148,12 @@ async function main() {
         lowStockThreshold: 5,
       })),
     )
-    .returning({ id: products.id, name: products.name, mrpPaise: products.mrpPaise, discountPct: products.discountPct });
+    .returning({
+      id: products.id,
+      name: products.name,
+      mrpPaise: products.mrpPaise,
+      discountPct: products.discountPct,
+    });
 
   console.log("→ cycle + bulk purchase from Blinkit");
   const [cycle] = await db
@@ -233,116 +231,82 @@ async function main() {
     });
   }
 
-  console.log("→ orders: one fulfilled sale, one live hold, one expired");
+  console.log("→ two counter sales");
   const sellOf = (p: { mrpPaise: number; discountPct: string }) =>
     computeSellPrice({ mrpPaise: p.mrpPaise, discountPct: p.discountPct });
 
-  const itemA = productRows[0];
-  const itemB = productRows[3];
-  const QTY_A = 5;
-  const QTY_B = 3;
-  const subtotal = sellOf(itemA) * QTY_A + sellOf(itemB) * QTY_B;
+  const productA = productRows[0]; // Lay's
+  const productD = productRows[3]; // Haldiram's
+  const productF = productRows[5]; // Amul dark chocolate
 
-  const [fulfilled] = await db
-    .insert(orders)
-    .values({
-      code: newOrderCode(),
-      userId: customerId,
-      status: "FULFILLED",
-      subtotalPaise: subtotal,
-      totalPaise: subtotal,
-      holdExpiresAt: ago(3),
-      pickupCode: newPickupCode(),
-      paidAt: ago(4),
-      readyAt: ago(4),
-      fulfilledAt: ago(3),
-      cycleId: cycle.id,
-      termsAcceptedAt: ago(4),
-    })
-    .returning({ id: orders.id, code: orders.code, totalPaise: orders.totalPaise });
-
-  await db.insert(orderItems).values([
+  const salePlans = [
     {
-      orderId: fulfilled.id,
-      productId: itemA.id,
-      qty: QTY_A,
-      unitPricePaise: sellOf(itemA),
-      unitCostPaise: costByProduct.get(itemA.name)!,
-      nameSnapshot: itemA.name,
+      code: "S-DEMO01",
+      soldAt: ago(6),
+      method: "UPI" as const,
+      buyerName: "Priya, 3rd floor",
+      lines: [
+        { product: productA, qty: 5 },
+        { product: productD, qty: 3 },
+      ],
     },
     {
-      orderId: fulfilled.id,
-      productId: itemB.id,
-      qty: QTY_B,
-      unitPricePaise: sellOf(itemB),
-      unitCostPaise: costByProduct.get(itemB.name)!,
-      nameSnapshot: itemB.name,
+      code: "S-DEMO02",
+      soldAt: ago(2),
+      method: "CASH" as const,
+      buyerName: null,
+      lines: [{ product: productF, qty: 2 }],
     },
-  ]);
+  ];
 
-  await db.insert(payments).values({
-    kind: "CUSTOMER_RECEIPT",
-    amountPaise: fulfilled.totalPaise,
-    method: "UPI_MANUAL",
-    direction: "IN",
-    utr: "431288910021",
-    status: "VERIFIED",
-    orderId: fulfilled.id,
-    verifiedBy: ownerId,
-    verifiedAt: ago(4),
-  });
+  const createdSales: { id: string; code: string; totalPaise: number }[] = [];
 
-  for (const [productId, qty, cost] of [
-    [itemA.id, QTY_A, costByProduct.get(itemA.name)!],
-    [itemB.id, QTY_B, costByProduct.get(itemB.name)!],
-  ] as [string, number, number][]) {
-    await recordMovement(db, {
-      productId,
-      type: "SALE",
-      qtyDelta: -qty,
-      unitCostPaise: cost,
-      orderId: fulfilled.id,
-      createdBy: ownerId,
-    });
+  for (const plan of salePlans) {
+    const subtotal = plan.lines.reduce(
+      (a, l) => a + sellOf(l.product) * l.qty,
+      0,
+    );
+
+    const [sale] = await db
+      .insert(sales)
+      .values({
+        code: plan.code,
+        cycleId: cycle.id,
+        soldAt: plan.soldAt,
+        subtotalPaise: subtotal,
+        totalPaise: subtotal,
+        method: plan.method,
+        buyerName: plan.buyerName,
+        createdBy: staffId,
+      })
+      .returning({ id: sales.id, code: sales.code, totalPaise: sales.totalPaise });
+
+    createdSales.push(sale);
+
+    await db.insert(saleItems).values(
+      plan.lines.map((l) => ({
+        saleId: sale.id,
+        productId: l.product.id,
+        qty: l.qty,
+        unitPricePaise: sellOf(l.product),
+        unitCostPaise: costByProduct.get(l.product.name)!,
+        nameSnapshot: l.product.name,
+      })),
+    );
+
+    for (const l of plan.lines) {
+      await recordMovement(db, {
+        productId: l.product.id,
+        type: "SALE",
+        qtyDelta: -l.qty,
+        unitCostPaise: costByProduct.get(l.product.name)!,
+        saleId: sale.id,
+        createdBy: staffId,
+      });
+    }
   }
 
-  const itemC = productRows[5];
-  const liveSubtotal = sellOf(itemC);
-  const [live] = await db
-    .insert(orders)
-    .values({
-      code: newOrderCode(),
-      userId: customerId,
-      status: "HOLD",
-      subtotalPaise: liveSubtotal,
-      totalPaise: liveSubtotal,
-      holdExpiresAt: soon(12),
-      cycleId: cycle.id,
-      termsAcceptedAt: new Date(),
-    })
-    .returning({ id: orders.id, code: orders.code });
-
-  await db.insert(orderItems).values({
-    orderId: live.id,
-    productId: itemC.id,
-    qty: 1,
-    unitPricePaise: liveSubtotal,
-    unitCostPaise: costByProduct.get(itemC.name)!,
-    nameSnapshot: itemC.name,
-  });
-
-  await db.insert(orders).values({
-    code: newOrderCode(),
-    userId: flakyId,
-    status: "EXPIRED",
-    subtotalPaise: liveSubtotal,
-    totalPaise: liveSubtotal,
-    holdExpiresAt: ago(1),
-    closedReason: "EXPIRED_UNPAID",
-    cycleId: cycle.id,
-  });
-
-  console.log("→ expenses, draft settlement, feedback");
+  console.log("→ expense, draft settlement, feedback");
   await db.insert(expenses).values({
     cycleId: cycle.id,
     kind: "TRANSPORT",
@@ -353,18 +317,24 @@ async function main() {
     incurredAt: dayAgo(21),
   });
 
+  const revenue = createdSales.reduce((a, s) => a + s.totalPaise, 0);
+  const cogs = salePlans.reduce(
+    (a, plan) =>
+      a + plan.lines.reduce((b, l) => b + costByProduct.get(l.product.name)! * l.qty, 0),
+    0,
+  );
+  const expensesTotal = 1500;
+  const profit = revenue - cogs - expensesTotal;
+
   const [settlement] = await db
     .insert(settlements)
     .values({
       cycleId: cycle.id,
-      revenuePaise: fulfilled.totalPaise,
-      cogsPaise: costByProduct.get(itemA.name)! * QTY_A + costByProduct.get(itemB.name)! * QTY_B,
-      expensesPaise: 1500,
+      revenuePaise: revenue,
+      cogsPaise: cogs,
+      expensesPaise: expensesTotal,
       closingStockValuePaise: 0,
-      profitPaise:
-        fulfilled.totalPaise -
-        (costByProduct.get(itemA.name)! * QTY_A + costByProduct.get(itemB.name)! * QTY_B) -
-        1500,
+      profitPaise: profit,
       status: "DRAFT",
       createdBy: ownerId,
     })
@@ -401,14 +371,11 @@ async function main() {
     ])
     .returning({ id: feedback.id });
 
-  await db.insert(feedbackVotes).values({ feedbackId: fb1.id, userId: flakyId });
+  await db.insert(feedbackVotes).values({ feedbackId: fb1.id, userId: ownerId });
 
   const [{ count: productCount }] = await db
     .select({ count: sql<number>`count(*)`.mapWith(Number) })
     .from(products);
-  const [{ count: movementCount }] = await db
-    .select({ count: sql<number>`count(*)`.mapWith(Number) })
-    .from(stockMovements);
   const [{ onHand }] = await db
     .select({ onHand: sql<number>`coalesce(sum(${stockLevels.onHand}), 0)`.mapWith(Number) })
     .from(stockLevels);
@@ -416,19 +383,13 @@ async function main() {
   console.log("");
   console.log("✓ seed complete");
   console.log(`  products        ${productCount}`);
-  console.log(`  stock movements ${movementCount}`);
   console.log(`  units on hand   ${onHand}`);
   console.log(`  purchase total  ${purchase.totalPaise} paise`);
   console.log(`  partner shares  ${shares.join(" / ")}`);
-  console.log(`  draft profit    ${settlement.profitPaise} paise`);
-  console.log(`  live order      ${live.code} (holds stock for 12 min)`);
-
-  const [{ usedSell }] = await db
-    .select({ usedSell: sql<number>`count(*)`.mapWith(Number) })
-    .from(products)
-    .where(eq(products.isActive, true));
-  void usedSell;
-  void pctOf;
+  console.log(`  sales           ${createdSales.map((s) => s.code).join(", ")}`);
+  console.log(`  revenue         ${revenue} paise`);
+  console.log(`  draft profit    ${profit} paise`);
+  console.log(`  profit split    ${profitShares.join(" / ")}`);
 }
 
 main()

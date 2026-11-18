@@ -4,10 +4,9 @@ CREATE TYPE "public"."feedback_status" AS ENUM('NEW', 'ACKED', 'PLANNED', 'DONE'
 CREATE TYPE "public"."feedback_type" AS ENUM('SUGGESTION', 'ITEM_REQUEST', 'BUG', 'COMPLAINT');--> statement-breakpoint
 CREATE TYPE "public"."notification_channel" AS ENUM('EMAIL', 'TELEGRAM', 'SMS');--> statement-breakpoint
 CREATE TYPE "public"."notification_status" AS ENUM('PENDING', 'SENT', 'FAILED');--> statement-breakpoint
-CREATE TYPE "public"."order_status" AS ENUM('HOLD', 'PAYMENT_PENDING', 'PAID', 'READY', 'FULFILLED', 'CANCELLED', 'EXPIRED', 'REFUNDED');--> statement-breakpoint
 CREATE TYPE "public"."payment_direction" AS ENUM('IN', 'OUT');--> statement-breakpoint
-CREATE TYPE "public"."payment_kind" AS ENUM('CUSTOMER_RECEIPT', 'PARTNER_CONTRIBUTION', 'PARTNER_PAYOUT', 'REFUND');--> statement-breakpoint
-CREATE TYPE "public"."payment_method" AS ENUM('UPI_MANUAL', 'UPI_GATEWAY', 'CASH', 'BANK_TRANSFER');--> statement-breakpoint
+CREATE TYPE "public"."payment_kind" AS ENUM('PARTNER_CONTRIBUTION', 'PARTNER_PAYOUT');--> statement-breakpoint
+CREATE TYPE "public"."payment_method" AS ENUM('CASH', 'UPI', 'BANK_TRANSFER');--> statement-breakpoint
 CREATE TYPE "public"."payment_status" AS ENUM('PENDING', 'VERIFIED', 'REJECTED');--> statement-breakpoint
 CREATE TYPE "public"."purchase_share_status" AS ENUM('OWED', 'PARTIAL', 'SETTLED');--> statement-breakpoint
 CREATE TYPE "public"."settlement_status" AS ENUM('DRAFT', 'FINAL');--> statement-breakpoint
@@ -83,8 +82,6 @@ CREATE TABLE "users" (
 	"phone" text,
 	"name" text,
 	"role" "user_role" DEFAULT 'CUSTOMER' NOT NULL,
-	"no_show_count" integer DEFAULT 0 NOT NULL,
-	"banned_until" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "users_email_unique" UNIQUE("email"),
@@ -164,15 +161,15 @@ CREATE TABLE "stock_movements" (
 	"qty_delta" integer NOT NULL,
 	"unit_cost_paise" integer,
 	"purchase_id" uuid,
-	"order_id" uuid,
+	"sale_id" uuid,
 	"note" text,
 	"created_by" uuid,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "order_items" (
+CREATE TABLE "sale_items" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"order_id" uuid NOT NULL,
+	"sale_id" uuid NOT NULL,
 	"product_id" uuid NOT NULL,
 	"qty" integer NOT NULL,
 	"unit_price_paise" integer NOT NULL,
@@ -180,26 +177,23 @@ CREATE TABLE "order_items" (
 	"name_snapshot" text NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "orders" (
+CREATE TABLE "sales" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"code" text NOT NULL,
-	"user_id" uuid NOT NULL,
-	"status" "order_status" DEFAULT 'HOLD' NOT NULL,
+	"cycle_id" uuid NOT NULL,
+	"sold_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"subtotal_paise" integer NOT NULL,
 	"discount_paise" integer DEFAULT 0 NOT NULL,
 	"total_paise" integer NOT NULL,
-	"hold_expires_at" timestamp with time zone NOT NULL,
-	"declared_utr" text,
-	"pickup_code" text,
-	"paid_at" timestamp with time zone,
-	"ready_at" timestamp with time zone,
-	"fulfilled_at" timestamp with time zone,
-	"closed_reason" text,
-	"cycle_id" uuid,
-	"terms_accepted_at" timestamp with time zone,
+	"method" "payment_method" DEFAULT 'CASH' NOT NULL,
+	"buyer_name" text,
 	"note" text,
+	"created_by" uuid,
+	"voided_at" timestamp with time zone,
+	"voided_by" uuid,
+	"void_reason" text,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "orders_code_unique" UNIQUE("code")
+	CONSTRAINT "sales_code_unique" UNIQUE("code")
 );
 --> statement-breakpoint
 CREATE TABLE "payments" (
@@ -209,28 +203,13 @@ CREATE TABLE "payments" (
 	"method" "payment_method" NOT NULL,
 	"direction" "payment_direction" NOT NULL,
 	"utr" text,
-	"gateway_payment_id" text,
 	"status" "payment_status" DEFAULT 'PENDING' NOT NULL,
-	"order_id" uuid,
 	"purchase_share_id" uuid,
 	"settlement_share_id" uuid,
 	"proof_path" text,
 	"verified_by" uuid,
 	"verified_at" timestamp with time zone,
 	"note" text,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE "waitlist_entries" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"product_id" uuid NOT NULL,
-	"user_id" uuid NOT NULL,
-	"qty" integer DEFAULT 1 NOT NULL,
-	"position" integer NOT NULL,
-	"offered_at" timestamp with time zone,
-	"offer_expires_at" timestamp with time zone,
-	"fulfilled_at" timestamp with time zone,
-	"cancelled_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -296,13 +275,8 @@ CREATE TABLE "settings" (
 	"support_phone" text,
 	"support_email" text,
 	"terms_text" text,
-	"hold_ttl_minutes" integer DEFAULT 12 NOT NULL,
-	"max_active_holds_per_user" integer DEFAULT 2 NOT NULL,
-	"scarce_threshold" integer DEFAULT 5 NOT NULL,
-	"no_show_limit" integer DEFAULT 2 NOT NULL,
-	"cooldown_days" integer DEFAULT 7 NOT NULL,
-	"unclaimed_cancel_days" integer DEFAULT 7 NOT NULL,
 	"show_exact_stock" boolean DEFAULT true NOT NULL,
+	"hide_out_of_stock" boolean DEFAULT false NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -322,15 +296,11 @@ ALTER TABLE "purchases" ADD CONSTRAINT "purchases_paid_by_partner_id_partners_id
 ALTER TABLE "stock_levels" ADD CONSTRAINT "stock_levels_product_id_products_id_fk" FOREIGN KEY ("product_id") REFERENCES "public"."products"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "stock_movements" ADD CONSTRAINT "stock_movements_product_id_products_id_fk" FOREIGN KEY ("product_id") REFERENCES "public"."products"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "stock_movements" ADD CONSTRAINT "stock_movements_purchase_id_purchases_id_fk" FOREIGN KEY ("purchase_id") REFERENCES "public"."purchases"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "order_items" ADD CONSTRAINT "order_items_order_id_orders_id_fk" FOREIGN KEY ("order_id") REFERENCES "public"."orders"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "order_items" ADD CONSTRAINT "order_items_product_id_products_id_fk" FOREIGN KEY ("product_id") REFERENCES "public"."products"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "orders" ADD CONSTRAINT "orders_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "orders" ADD CONSTRAINT "orders_cycle_id_cycles_id_fk" FOREIGN KEY ("cycle_id") REFERENCES "public"."cycles"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "payments" ADD CONSTRAINT "payments_order_id_orders_id_fk" FOREIGN KEY ("order_id") REFERENCES "public"."orders"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sale_items" ADD CONSTRAINT "sale_items_sale_id_sales_id_fk" FOREIGN KEY ("sale_id") REFERENCES "public"."sales"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sale_items" ADD CONSTRAINT "sale_items_product_id_products_id_fk" FOREIGN KEY ("product_id") REFERENCES "public"."products"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sales" ADD CONSTRAINT "sales_cycle_id_cycles_id_fk" FOREIGN KEY ("cycle_id") REFERENCES "public"."cycles"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "payments" ADD CONSTRAINT "payments_purchase_share_id_purchase_shares_id_fk" FOREIGN KEY ("purchase_share_id") REFERENCES "public"."purchase_shares"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "payments" ADD CONSTRAINT "payments_verified_by_users_id_fk" FOREIGN KEY ("verified_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "waitlist_entries" ADD CONSTRAINT "waitlist_entries_product_id_products_id_fk" FOREIGN KEY ("product_id") REFERENCES "public"."products"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "waitlist_entries" ADD CONSTRAINT "waitlist_entries_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "settlement_shares" ADD CONSTRAINT "settlement_shares_settlement_id_settlements_id_fk" FOREIGN KEY ("settlement_id") REFERENCES "public"."settlements"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "settlement_shares" ADD CONSTRAINT "settlement_shares_partner_id_partners_id_fk" FOREIGN KEY ("partner_id") REFERENCES "public"."partners"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "settlements" ADD CONSTRAINT "settlements_cycle_id_cycles_id_fk" FOREIGN KEY ("cycle_id") REFERENCES "public"."cycles"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
@@ -346,18 +316,14 @@ CREATE UNIQUE INDEX "purchase_shares_unique_idx" ON "purchase_shares" USING btre
 CREATE INDEX "purchases_cycle_idx" ON "purchases" USING btree ("cycle_id","purchased_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "stock_levels_product_unique" ON "stock_levels" USING btree ("product_id");--> statement-breakpoint
 CREATE INDEX "stock_movements_product_idx" ON "stock_movements" USING btree ("product_id","created_at");--> statement-breakpoint
-CREATE INDEX "stock_movements_order_idx" ON "stock_movements" USING btree ("order_id");--> statement-breakpoint
+CREATE INDEX "stock_movements_sale_idx" ON "stock_movements" USING btree ("sale_id");--> statement-breakpoint
 CREATE INDEX "stock_movements_purchase_idx" ON "stock_movements" USING btree ("purchase_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "order_items_unique_idx" ON "order_items" USING btree ("order_id","product_id");--> statement-breakpoint
-CREATE INDEX "order_items_product_idx" ON "order_items" USING btree ("product_id");--> statement-breakpoint
-CREATE INDEX "orders_user_idx" ON "orders" USING btree ("user_id","created_at");--> statement-breakpoint
-CREATE INDEX "orders_status_expiry_idx" ON "orders" USING btree ("status","hold_expires_at");--> statement-breakpoint
-CREATE INDEX "orders_cycle_idx" ON "orders" USING btree ("cycle_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "sale_items_unique_idx" ON "sale_items" USING btree ("sale_id","product_id");--> statement-breakpoint
+CREATE INDEX "sale_items_product_idx" ON "sale_items" USING btree ("product_id");--> statement-breakpoint
+CREATE INDEX "sales_cycle_idx" ON "sales" USING btree ("cycle_id","sold_at");--> statement-breakpoint
+CREATE INDEX "sales_sold_at_idx" ON "sales" USING btree ("sold_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "payments_utr_unique" ON "payments" USING btree ("utr");--> statement-breakpoint
-CREATE UNIQUE INDEX "payments_gateway_unique" ON "payments" USING btree ("gateway_payment_id");--> statement-breakpoint
 CREATE INDEX "payments_status_idx" ON "payments" USING btree ("status","created_at");--> statement-breakpoint
-CREATE INDEX "payments_order_idx" ON "payments" USING btree ("order_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "waitlist_unique_idx" ON "waitlist_entries" USING btree ("product_id","user_id");--> statement-breakpoint
-CREATE INDEX "waitlist_queue_idx" ON "waitlist_entries" USING btree ("product_id","position");--> statement-breakpoint
+CREATE INDEX "payments_purchase_share_idx" ON "payments" USING btree ("purchase_share_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "settlement_shares_unique_idx" ON "settlement_shares" USING btree ("settlement_id","partner_id");--> statement-breakpoint
 CREATE INDEX "settlements_cycle_idx" ON "settlements" USING btree ("cycle_id");

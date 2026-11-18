@@ -75,25 +75,24 @@ export default async function ProductPage({ params }: { params: Promise<Params> 
           )}
 
           <div className="mt-5">
-            <StockBadge available={product.available} onHand={product.onHand} />
-            {settings.showExactStock && product.available > 0 && (
+            <StockBadge onHand={product.onHand} />
+            {settings.showExactStock && product.onHand > 0 && (
               <p className="mt-2 text-xs text-ink-soft">
-                {product.onHand} in the shop · {product.available} available to reserve
+                {product.onHand} on the shelf right now
               </p>
             )}
           </div>
 
           <div className="mt-6 rounded-2xl border border-line bg-white p-4">
-            <button
-              type="button"
-              disabled
-              className="h-11 w-full cursor-not-allowed rounded-xl bg-cream-deep text-sm font-medium text-ink-soft"
-            >
-              Reserve — opening soon
-            </button>
-            <p className="mt-2 text-xs leading-relaxed text-ink-soft">
-              Online reservations switch on once UPI payments go live. Until then, message us to
-              hold an item.
+            <p className="text-sm font-medium">
+              {product.onHand > 0 ? "Available to collect" : "Nothing on the shelf"}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-ink-soft">
+              {product.onHand > 0
+                ? `Ask for it at the counter${
+                    settings.supportEmail ? `, or write to ${settings.supportEmail}` : ""
+                  }. Stock counts here are live — they change the moment something is sold.`
+                : "We restock in bulk a few times a month. Send us a request and we will pick it up on the next order."}
             </p>
           </div>
 
