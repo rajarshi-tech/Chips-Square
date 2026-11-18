@@ -30,9 +30,11 @@ npm run lint           # eslint
 npm test               # vitest run (unit tests)
 npm run db:generate    # schema change -> new SQL migration in ./drizzle
 npm run db:migrate     # apply pending migrations
-npm run db:seed        # wipe + load demo data (5 partners, 12 products, orders)
+npm run db:seed        # wipe + load demo data (5 partners, 12 products, 2 sales)
 npm run db:reset       # delete the local database entirely
 npm run db:studio      # drizzle studio
+npm run user:password -- <email>            # set/reset a staff password (prompts)
+npm run user:password -- <email> --generate # random password, printed once
 ```
 
 There is **no external database to install**. Without `DATABASE_URL`, everything runs on PGlite in
@@ -49,12 +51,18 @@ src/app/                     routes (App Router, server components by default)
   catalog/                   filtered grid (searchParams driven)
   product/[slug]/            detail
   how-it-works/, feedback/   static-ish content; feedback has a server action
-  feedback/actions.ts        "use server" — the ONLY way forms write to the DB
+  login/                     email + password form, redirects to /admin on success
+  logout/actions.ts          sign out (a POST-style action, never a GET link)
+  admin/                     guarded back office; layout.tsx is the guard + nav
 src/components/              presentational components (no DB access)
 src/lib/
   money.ts                   integer-paise maths. The most important file in the repo.
   inventory.ts               stock ledger writes, on-hand, stock valuation
   queries/products.ts        the read model the storefront pages consume
+  auth/password.ts           scrypt hash/verify (node:crypto, no dependency)
+  auth/token.ts              signed session cookie: sign + verify (pure, tested)
+  auth/session.ts            cookie <-> user, getSessionUser, requireUser, requireManager
+  auth/throttle.ts           in-process login rate limit
   settings.ts                cached settings row with defaults
   upi.ts                     UPI deep links, UTR normalisation (counter QR, partner transfers)
   codes.ts                   sale codes, pickup/short codes, slugs
@@ -97,7 +105,15 @@ covered in `docs/01-data-model.md`.
     at the time. Adding a partner later must never rewrite history.
 11. **No scraping Blinkit/Flipkart.** Product data is entered by an admin, optionally pre-filled from
     Open Food Facts (attribution is required and already in the footer). See `docs/03`.
-12. **No reservations, holds, carts or online payments.** This was designed, built, then removed at
+12. **Auth is one signed cookie, no vendor.** `src/lib/auth/*`, ~200 lines, no OAuth app and no
+    email service. Do not add NextAuth-style stacks, social login or magic links: five staff, set up
+    in person with `npm run user:password`. Do not add self-service signup — every account is created
+    deliberately. `AUTH_SECRET` (32+ chars) is **required** in production; dev falls back to an
+    insecure constant so `npm run dev` works with no setup.
+13. **Every admin page and admin server action calls `requireManager()`.** The `/admin` layout guard
+    covers pages only — server actions are separate entry points and a layout cannot protect them.
+    Authorisation is checked server-side, always; hiding a button is not access control.
+14. **No reservations, holds, carts or online payments.** This was designed, built, then removed at
     the owner's request because it was solving the wrong problem. Read `docs/02 §1` before proposing
     anything adjacent. If pre-orders are ever genuinely needed, the only acceptable shape is
     pay-first with a signed gateway webhook — never hold stock for an unpaid order.
@@ -136,10 +152,14 @@ Phase 0 and the public half of Phase 1 are done: schema (21 tables), migrations,
 inventory libraries with 25 tests, and a **read-only public shelf** (home, catalogue, product,
 how-it-works, working feedback form).
 
-Not built yet: auth, the whole `/admin/**` area, purchase recording, settlement, and counter sales.
-The product page therefore shows stock and "ask at the counter" — no buy button, by design.
+Auth is done (email + password, signed session cookie, role guards, `/login`, `/admin` dashboard
+with live stock value, today's takings, recent sales, low stock). The rest of `/admin/**` — products,
+stock adjustments, sales recording, purchases, cycles, settlement — is **not built yet**, and those
+nav items are labelled "soon" rather than linked to a dead route.
 
-Build order is auth → product admin → phase 2 (purchases, settlement) → phase 3 (counter sales).
+The product page shows stock and "ask at the counter" — no buy button, by design.
+
+Build order is product admin → phase 2 (purchases, settlement) → phase 3 (counter sales).
 Do not build sales recording before settlement maths exists, because a sale's whole purpose here is
 feeding the profit split.
 

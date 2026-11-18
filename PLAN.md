@@ -214,6 +214,30 @@ Details and acceptance criteria in `docs/04-roadmap.md`.
 Newest first. Anything that surprises a future reader belongs here, not in a commit message nobody
 opens.
 
+### Auth: email + password, hand-rolled, no vendor
+
+Chose the simplest thing that still identifies individuals, after weighing Google OAuth, email magic
+links and a shared password.
+
+- **Google OAuth**: a Cloud Console project, a consent screen, a client secret to rotate, and the
+  app breaks for anyone without a Google account. Setup cost, zero benefit at five users.
+- **Magic links**: needs an email vendor (Resend), a domain to send from, and a token table — for a
+  club whose members are standing in the same room.
+- **Shared password**: one string, no setup. Rejected because `sales.created_by` and the audit trail
+  need an actor, and one person leaving would force rotating the password for everyone.
+- **Chosen: email + password.** `users.password_hash` (scrypt from `node:crypto`, self-describing
+  string so parameters can be raised later). A session is an HMAC-signed cookie holding a user id and
+  an expiry — verified by `src/lib/auth/token.ts`, which is pure and unit tested (8 tests: tampered
+  payload, wrong secret, expiry, malformed input). No dependency added.
+- Login is throttled in-process (8 failures / 15 min). Unknown emails are verified against a dummy
+  hash so response time does not reveal which accounts exist. One generic error message.
+- No signup and no password reset by design; `npm run user:password -- <email>` is the whole flow.
+- `AUTH_SECRET` is required in production and fails loudly; dev falls back to a fixed string so
+  `npm run dev` still needs no setup.
+- Strength that mattered more than the choice: the guard is in `/admin/layout.tsx` **and** in each
+  action via `requireManager()`. Verified with real cookies: anon → `/login`, forged → `/login`,
+  `CUSTOMER` → `/`, `ADMIN` → 200.
+
 ### Reservations removed — the product is inventory management
 
 Requested change, and the right one: **users can only see stock; admins do the managing.**

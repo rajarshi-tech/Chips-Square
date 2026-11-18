@@ -7,8 +7,8 @@ is available, and the profit of each batch is split fairly.
 **What it is:** admins manage inventory; users only look. No cart, no reservation, no online payment —
 see [`docs/02-sales-and-money.md`](./docs/02-sales-and-money.md) §1 for why.
 
-**Status:** early. The public read-only shelf is live on seed data; auth, the admin area, purchases,
-settlement and counter sales are next. See [`docs/04-roadmap.md`](./docs/04-roadmap.md).
+**Status:** early. The public read-only shelf and staff sign-in are live on seed data; product admin,
+purchases, settlement and counter sales are next. See [`docs/04-roadmap.md`](./docs/04-roadmap.md).
 
 ## Quick start
 
@@ -19,6 +19,9 @@ npm run db:seed         # demo partners, products, a bulk purchase and two sales
 npm run dev             # http://localhost:3000
 ```
 
+Then sign in at `/login` as `owner@chipssquare.in` / `chips-demo-2026` (seed data only). No OAuth
+app, no email service — passwords are set with `npm run user:password -- <email>`.
+
 ## What works today
 
 | Route | What it does |
@@ -28,6 +31,8 @@ npm run dev             # http://localhost:3000
 | `/product/[slug]` | MRP struck through, our price, saving, exact on-hand count |
 | `/how-it-works` | the rules: pricing, stock counts, buying, returns |
 | `/feedback` | working item-request / feedback form (server action) |
+| `/login` | staff sign-in (email + password) |
+| `/admin` | guarded overview: stock value, today's takings, recent sales, low stock |
 
 Stock and prices come from the database, not fixtures. Every number is derived from an append-only
 `stock_movements` ledger, so a count can always be explained.

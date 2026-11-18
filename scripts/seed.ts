@@ -26,6 +26,7 @@ import {
 } from "../src/db/schema";
 import { slugify } from "../src/lib/codes";
 import { recordMovement } from "../src/lib/inventory";
+import { hashPassword } from "../src/lib/auth/password";
 import { computeSellPrice, splitEvenly } from "../src/lib/money";
 
 /**
@@ -105,11 +106,28 @@ async function main() {
   });
 
   console.log("→ users + partners");
+  // Demo staff credentials. Override or remove before pointing this at real data.
+  const demoPassword = process.env.SEED_PASSWORD ?? "chips-demo-2026";
+  const demoHash = await hashPassword(demoPassword);
+
   const userRows = await db
     .insert(users)
     .values([
-      { email: "owner@chipssquare.in", name: "Owner", phone: "+919000000001", role: "OWNER" },
-      { email: "staff@chipssquare.in", name: "Shop Staff", phone: "+919000000002", role: "ADMIN" },
+      {
+        email: "owner@chipssquare.in",
+        name: "Owner",
+        phone: "+919000000001",
+        role: "OWNER",
+        passwordHash: demoHash,
+      },
+      {
+        email: "staff@chipssquare.in",
+        name: "Shop Staff",
+        phone: "+919000000002",
+        role: "ADMIN",
+        passwordHash: demoHash,
+      },
+      // Customers have no account in practice; this row exists to prove CUSTOMER cannot reach /admin.
       { email: "customer@example.com", name: "Priya Customer", phone: "+919000000099", role: "CUSTOMER" },
     ])
     .returning({ id: users.id, email: users.email });
@@ -390,6 +408,10 @@ async function main() {
   console.log(`  revenue         ${revenue} paise`);
   console.log(`  draft profit    ${profit} paise`);
   console.log(`  profit split    ${profitShares.join(" / ")}`);
+  console.log("");
+  console.log("  sign in at /login");
+  console.log(`    owner@chipssquare.in   ${demoPassword}  (OWNER)`);
+  console.log(`    staff@chipssquare.in   ${demoPassword}  (ADMIN)`);
 }
 
 main()

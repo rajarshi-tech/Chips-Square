@@ -18,6 +18,12 @@ export const users = pgTable("users", {
   phone: text("phone").unique(),
   name: text("name"),
   role: userRole("role").notNull().default("CUSTOMER"),
+  /**
+   * scrypt hash in a self-describing string (see src/lib/auth/password.ts).
+   * Null means the account cannot sign in yet — set it with `npm run user:password`.
+   */
+  passwordHash: text("password_hash"),
+  lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

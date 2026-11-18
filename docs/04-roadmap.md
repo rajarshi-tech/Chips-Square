@@ -24,9 +24,10 @@ convenience features. Each phase ends with something you can actually use.
       `/how-it-works`, `not-found`. Read-only — no cart, no reservation.
 - [x] Price display: MRP struck through, price, savings %, discount badge, stock badge.
 - [x] `on_hand` derived from the ledger via `src/lib/inventory.ts` + `stock_levels` cache.
-- [ ] Auth (Auth.js: Google + email magic link), `users.role`, `requireRole()` guard on every admin
-      route, `/login`.
-- [ ] `/admin` shell + navigation, protected by role.
+- [x] Auth: email + password (scrypt), signed session cookie, 7-day expiry, `requireManager()` on
+      every admin page and action, `/login`, sign out, login throttling. No OAuth, no email vendor.
+- [x] `/admin` shell + navigation, protected by role, `/admin` overview (stock value, today's
+      takings, recent sales, low stock). Unbuilt sections are labelled "soon", not linked.
 - [ ] `/admin/products`: list, create (barcode scan → Open Food Facts prefill → image upload),
       inline edit, duplicate detection, bulk discount apply, CSV import.
 - [ ] `/admin/stock`: adjustment form (type, qty, **required note**) + movement history per product.

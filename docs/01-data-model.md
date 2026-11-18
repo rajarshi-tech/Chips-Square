@@ -13,15 +13,26 @@ Written as a Drizzle-ish sketch; the SQL is the source of truth at implementatio
 users
   id            uuid pk
   email         text unique not null
-  phone         text unique            // required before reserving; OTP-verified later
+  phone         text unique
   name          text
   role          enum('CUSTOMER','PARTNER','ADMIN','OWNER') default 'CUSTOMER'
+  password_hash text null              // scrypt, self-describing; null = cannot sign in
+  last_login_at timestamptz
   created_at    timestamptz
 ```
 
 Roles are additive in practice: an `ADMIN` can also be a buyer. Keep one `role` column for gating and
 treat `PARTNER` as "has a partner row + read access to finance". `CUSTOMER` is read-only: they browse
 the shelf and submit feedback, nothing else.
+
+**Sign-in is email + password, nothing else.** No OAuth app, no email vendor, no self-service signup
+or reset — there are five people and they are reachable in person. An admin sets a password with
+`npm run user:password -- <email>`. Sessions are a signed cookie (`src/lib/auth/token.ts`, 7 days,
+`httpOnly`, `sameSite=lax`) holding only a user id and an expiry.
+
+Why not a shared password: the audit trail needs an actor, and one person leaving must not mean
+rotating a password for everyone. Why not a gateway-based login: it solves a problem this club does
+not have.
 
 ## 2. Partners
 

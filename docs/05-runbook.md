@@ -11,6 +11,7 @@ git clone <repo> && cd "Chips Square"
 npm install
 npm run db:migrate     # creates ./.pglite and applies schema
 npm run db:seed        # demo data: 5 partners, 12 products, one purchase, two sales
+npm run user:password -- owner@chipssquare.in   # set a staff password
 npm run dev            # http://localhost:3000
 ```
 
@@ -90,6 +91,9 @@ All routes are dynamic, so anything that works locally works deployed.
 | Seed prints `refusing without --force` | `DATABASE_URL` is set | intentional guard; pass `--force` only if you really mean it |
 | Stock looks wrong | someone mutated a row by hand | the ledger is truth: check `stock_movements`, then call `refreshStockLevel` |
 | A sale was entered wrong | human error | void it (`voided_at` + `RETURN` movements); never delete the row |
+| Every page is 500 in production | `AUTH_SECRET` missing | it is required there (dev falls back silently); generate one with `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"` |
+| Staff cannot sign in | no `password_hash` on the row | `npm run user:password -- <email>` |
+| Locked out after 8 bad passwords | in-process throttle, 15-minute window | restart the server, or wait |
 | `relation "…" does not exist` | migration not applied | `npm run db:migrate` |
 
 ## Reading the numbers (for the owner, not the dev)

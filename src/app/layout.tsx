@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { getSessionUser } from "@/lib/auth/session";
 import { getSettings } from "@/lib/settings";
 import "./globals.css";
 
@@ -29,7 +30,7 @@ export async function generateMetadata(): Promise<Metadata> {
       template: `%s · ${s.shopName}`,
     },
     description:
-      "A small buying club pooling quick-commerce discounts. Reserve what you want, collect it at cost-plus.",
+      "A small buying club pooling quick-commerce discounts. See what is on the shelf, collect it at cost-plus.",
     openGraph: { type: "website", siteName: s.shopName },
     robots: { index: true, follow: true },
   };
@@ -37,6 +38,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const s = await getSettings();
+  const user = await getSessionUser();
 
   return (
     <html
@@ -44,7 +46,11 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
-        <SiteHeader storeName={s.shopName} />
+        <SiteHeader
+          storeName={s.shopName}
+          staffLabel={user ? "Admin" : "Staff"}
+          staffHref={user ? "/admin" : "/login"}
+        />
         <main className="flex-1">{children}</main>
         <SiteFooter
           storeName={s.shopName}

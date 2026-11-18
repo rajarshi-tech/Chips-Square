@@ -10,7 +10,15 @@ const NAV = [
   { href: "/feedback", label: "Request an item" },
 ];
 
-export function SiteHeader({ storeName }: { storeName: string }) {
+export function SiteHeader({
+  storeName,
+  staffLabel,
+  staffHref,
+}: {
+  storeName: string;
+  staffLabel: string;
+  staffHref: string;
+}) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -28,6 +36,12 @@ export function SiteHeader({ storeName }: { storeName: string }) {
         </Link>
 
         <nav className="ml-auto hidden items-center gap-1 sm:flex" aria-label="Main">
+          <Link
+            href={staffHref}
+            className="rounded-lg px-3 py-1.5 text-xs text-ink-soft transition-colors hover:text-ink"
+          >
+            {staffLabel}
+          </Link>
           {NAV.map((item) => {
             const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
             return (
@@ -74,6 +88,13 @@ export function SiteHeader({ storeName }: { storeName: string }) {
               {item.label}
             </Link>
           ))}
+          <Link
+            href={staffHref}
+            onClick={() => setOpen(false)}
+            className="block py-3 text-xs text-ink-soft"
+          >
+            {staffLabel}
+          </Link>
         </nav>
       )}
     </header>
