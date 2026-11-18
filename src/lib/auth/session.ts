@@ -16,7 +16,7 @@ import { signSessionToken, verifySessionToken } from "./token";
 export const SESSION_COOKIE = "chipssq_session";
 export const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
-export type Role = "CUSTOMER" | "PARTNER" | "ADMIN" | "OWNER";
+export type Role = "OWNER" | "ADMIN";
 
 export type SessionUser = {
   id: string;
@@ -25,8 +25,8 @@ export type SessionUser = {
   role: Role;
 };
 
-/** Roles allowed into /admin. `PARTNER` can read money, so it is not a manager role. */
-export const MANAGER_ROLES: Role[] = ["ADMIN", "OWNER"];
+/** Everyone with an account can run the shop. Only the owner can manage accounts. */
+export const MANAGER_ROLES: Role[] = ["OWNER", "ADMIN"];
 
 export function getAuthSecret(): string {
   const secret = process.env.AUTH_SECRET;

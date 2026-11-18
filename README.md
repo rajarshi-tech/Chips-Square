@@ -39,6 +39,8 @@ npm run user:create -- you@example.com --role OWNER --generate   # prints a pass
 | `/admin` | guarded overview: stock value, today's takings, recent sales, low stock |
 | `/admin/products` | list, add (barcode → Open Food Facts prefill), edit, archive |
 | `/admin/stock` | on-hand list; per-product adjustments with a forced reason + ledger history |
+| `/admin/sales` | day book, today's takings, void with a reason |
+| `/admin/sales/new` | record a counter sale: type-ahead, qty capped at stock, editable price |
 | `/admin/users` | owner-only: add admins/partners, set roles, reset passwords, revoke |
 
 Stock and prices come from the database, not fixtures. Every number is derived from an append-only
@@ -66,7 +68,7 @@ npm run db:generate | db:migrate | db:seed | db:reset | db:studio
 | [docs/00-decisions.md](./docs/00-decisions.md) | why the stack, why manual product data, why no reservations |
 | [docs/01-data-model.md](./docs/01-data-model.md) | every table, derived stock queries, settlement maths |
 | [docs/02-sales-and-money.md](./docs/02-sales-and-money.md) | recording a sale, voiding, partner money |
-| [docs/06-roles-and-accounts.md](./docs/06-roles-and-accounts.md) | one owner onboards admins; why roles are not equal |
+| [docs/06-roles-and-accounts.md](./docs/06-roles-and-accounts.md) | two roles: the owner manages people, admins run the shop |
 | [docs/03-product-data-sourcing.md](./docs/03-product-data-sourcing.md) | why we do not scrape Blinkit/Flipkart |
 | [docs/04-roadmap.md](./docs/04-roadmap.md) | phases and acceptance criteria |
 | [docs/05-runbook.md](./docs/05-runbook.md) | setup, migrations, troubleshooting |

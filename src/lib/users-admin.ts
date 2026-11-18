@@ -9,14 +9,19 @@ import type { Role } from "@/lib/auth/session";
  * Account management. Only an OWNER reaches these functions (enforced by the actions that call
  * them), because "who can change the numbers" is the one decision a club should not delegate.
  *
- * There is no delete. Access is revoked by clearing `password_hash`: the row stays so every
- * historical `created_by` / `voided_by` still resolves to a person.
+ * Two ways to remove someone:
+ *   Revoke  clears `password_hash`. The row stays, so `created_by` / `voided_by` still resolve.
+ *   Delete  removes the row. Sales and movements keep their `created_by` uuid but can no longer show
+ *           a name — that is the trade, and the UI says so before it happens.
  *
- * Vocabulary:
- *   OWNER  one or two people. Can add admins, change roles, close settlements.
- *   ADMIN  shop staff. Products, stock, sales, purchases. Cannot create accounts.
- *   PARTNER reads money, sees their own balance. Cannot change stock.
- *   CUSTOMER browse only — no login in practice.
+ * `LastOwnerError` guards both: the business must always have one owner who can sign in and manage
+ * accounts.
+ *
+ * Vocabulary (two roles, deliberately):
+ *   OWNER  one person: the site owner. Everything an admin can do, plus accounts and settlements.
+ *   ADMIN  everyone else in the business. Products, stock, sales, purchases, dashboard.
+ *
+ * There is no customer or partner login. Five people share the work; the shop itself is public.
  */
 
 /** Postgres unique violation; Drizzle wraps it, so the SQLSTATE may sit in `cause`. */
@@ -54,7 +59,7 @@ export type AdminUserRow = {
   createdAt: Date;
 };
 
-export const ASSIGNABLE_ROLES: Role[] = ["ADMIN", "PARTNER", "OWNER", "CUSTOMER"];
+export const ASSIGNABLE_ROLES: Role[] = ["ADMIN", "OWNER"];
 
 /** Readable, unambiguous, ~100 bits. Shown once, never stored. */
 export function generatePassword(): string {
@@ -142,6 +147,22 @@ export async function setUserRole(id: string, role: Role): Promise<void> {
   if (row.role === "OWNER" && role !== "OWNER") await assertAnotherOwnerRemains(id);
 
   await db.update(users).set({ role, updatedAt: new Date() }).where(eq(users.id, id));
+}
+
+/**
+ * Permanently remove an account. Owner-only, and never the last owner.
+ *
+ * Foreign keys are `set null` (partners, feedback) or absent (created_by columns), so history keeps
+ * its rows and loses only the name attached to them.
+ */
+export async function deleteUser(id: string, actorId: string): Promise<void> {
+  if (id === actorId) throw new LastOwnerError(); // deleting yourself locks you out mid-session
+
+  const [row] = await db.select({ role: users.role }).from(users).where(eq(users.id, id)).limit(1);
+  if (!row) throw new Error("User not found");
+  if (row.role === "OWNER") await assertAnotherOwnerRemains(id);
+
+  await db.delete(users).where(eq(users.id, id));
 }
 
 async function assertAnotherOwnerRemains(excludingId: string): Promise<void> {

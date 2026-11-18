@@ -21,6 +21,11 @@ export function newOrderCode(): string {
   return `CS-${randomCode(6)}`;
 }
 
+/** Short sale code, e.g. S-8F3K2M. Shown on the receipt and in the audit trail. */
+export function newSaleCode(): string {
+  return `S-${randomCode(6)}`;
+}
+
 /** 4-digit pickup code, shown after payment and typed by staff at the counter. */
 export function newPickupCode(): string {
   return String(1000 + (randomBytes(2).readUInt16BE(0) % 9000));

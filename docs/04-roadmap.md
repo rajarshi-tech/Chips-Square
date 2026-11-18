@@ -57,15 +57,18 @@ catalogue.
 **Done when:** you can record one real bulk purchase, sell it all through the app, close the cycle,
 and the split is arithmetically identical to what you would have done in the notes app — but auditable.
 
-## Phase 3 — Counter sales (3–4 days)
+## Phase 3 — Counter sales (3–4 days) ✅ mostly done
 
-- [ ] `/admin/sales/new`: product search, qty, editable line price, method, buyer note. One screen,
-      usable one-handed.
-- [ ] Atomic write: sale + items + `SALE` movements + stock refresh, in one transaction.
-- [ ] Server-side check that qty ≤ on-hand, inside the transaction.
-- [ ] Void a sale with a reason → `RETURN` movements; settlement ignores voided sales.
-- [ ] `/admin/sales`: today's takings, this cycle's revenue, list + filter, reprint/void.
-- [ ] Idempotency so a double-tap cannot create two sales.
+- [x] `/admin/sales/new`: product type-ahead (only what is on the shelf), qty capped at on-hand,
+      editable line price, method, buyer note. Usable one-handed.
+- [x] Atomic write: sale + items + `SALE` movements + stock refresh, in one transaction. The on-hand
+      check happens inside that transaction.
+- [x] Void a sale with a required reason → `RETURN` movements; voided sales are excluded from revenue
+      and from unit counts.
+- [x] `/admin/sales`: today's takings, unit count, the day book, void inline.
+- [ ] Idempotency, so a retried POST cannot create a second sale (the button disables; a retry is
+      still possible).
+- [ ] Receipt / printable slip.
 
 **Done when:** a sale entered in the admin panel changes the public stock count on next load, and
 voiding it puts the units back.

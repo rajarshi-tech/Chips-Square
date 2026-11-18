@@ -1,97 +1,80 @@
 # 06 — Roles and accounts
 
-Short answer: **there is one owner (or two), and the owner onboards everyone else.** Admins are not
-equals to the owner — they run the shop, they do not decide who gets in.
+Two roles. Not four, not five equal keys to the same door.
 
-This exists so nobody has to guess, and so a future change does not quietly flatten the model.
+- **OWNER** — one person: you, the site owner. Does everything an admin does, and is the only one who
+  can create, change or remove accounts.
+- **ADMIN** — everyone else in the business. Full run of the shop: products, stock, sales, purchases,
+  dashboard. Cannot touch this page.
+
+There is no customer login and no partner login. The shelf is public, and the five people in the
+business are the five accounts believed to exist.
 
 ---
 
-## 1. The four roles
+## 1. Why only two roles
 
-| Role | Can do | Cannot do |
-|---|---|---|
-| `OWNER` | everything an admin can, plus: add people, change roles, revoke access, close and finalise cycles, edit settings | — |
-| `ADMIN` | products, stock adjustments, record/void sales, record purchases, read the dashboard | add people, change roles, close a cycle, edit settings |
-| `PARTNER` | read money: contribution ledger, cycle settlements, own balance | change stock, record sales, add people |
-| `CUSTOMER` | read the public shelf, submit feedback | sign in to anything |
+The club is five people who share the same work. Anything more elaborate is a fiction that has to be
+maintained: a `PARTNER` who "reads money but not stock" is the same person who restocks on Saturday.
+Two roles answer the only question that actually matters — **who gets to decide who has access** —
+and leave the rest of the work shared.
 
-`CUSTOMER` is the default and needs no account in practice: the shop is public.
+The asymmetry is on purpose. Admin access is about doing the job; owner access is about membership.
+A compromised admin account cannot add another account, cannot delete one, and cannot quietly widen
+its own role.
 
-## 2. Why one owner rather than five equal admins
+## 2. Creating the very first owner
 
-- **The money needs an accountable hand.** A settlement nobody is responsible for finalising is a
-  settlement that gets argued about. The owner closes it.
-- **"Who is allowed in" is the one decision worth centralising.** Five equal admins means any
-  compromised account can add another account. That is how a small club loses its records.
-- **Adding a partner later must not require a meeting.** The owner adds the row; the profit split
-  uses `purchase_shares` / `settlement_shares` snapshots, so history is unaffected.
-- Admins are still fully trusted with daily work. The distinction is about *who decides membership*,
-  not about micro-approving stock edits.
-
-Two owners is fine — that is the "what if the owner is on holiday" answer. The database enforces that
-there is always **at least one owner with a password**: demoting or revoking the last one fails with
-`LastOwnerError`.
-
-## 3. Creating the very first owner
-
-`/admin/users` needs an owner to open, so the first one comes from a terminal:
+`/admin/users` needs an owner to open it, so the first one comes from a terminal:
 
 ```bash
 npm run user:create -- you@example.com --role OWNER --generate
 ```
 
 It prints a 20-character password **once**. Sign in at `/login` with that email and password, then add
-everyone else from `/admin/users`.
+the other four people from `/admin/users`.
 
-The seeded demo database already has `owner@chipssquare.in` / `chips-demo-2026`. That exists for local
+The seeded demo database already has `owner@chipssquare.in` / `chips-demo-2026`. That is for local
 development only — do not carry it to production.
 
 Locked out later? `npm run user:password -- you@example.com --generate`. There is no email-based
-reset, by design: whoever can run a command on the server is already trusted with the database.
+reset by design: whoever can run a command on the server is already trusted with the database.
 
-## 4. How an owner adds an admin
+## 3. Adding an admin
 
-`/admin/users` (owner-only; the nav hides it for everyone else, and the route redirects):
+`/admin/users` → **Add someone** → email, name, role (`ADMIN`), leave the password blank.
 
-1. Email + name + role. Password is optional — leave it blank and a 20-character one is generated.
-2. The password is shown **once**, on screen, because there is no email delivery. Copy it and send it
-   to the person however you normally talk to them.
-3. They sign in at `/login`. First sign-in updates `last_login_at`.
+A password is generated and shown **once**, on that screen. Copy it, send it however you normally talk
+to that person. No invite email, no self-signup, no "forgot password" link — a forgotten password is a
+two-second job for the owner from the same screen.
 
-No invite email, no self-signup, no "forgot password" link. A forgotten password is a two-second job
-for the owner: set a new one on the same screen. That is a deliberate trade — an email vendor and a
-token table would be more machinery than this club needs, and a reset email to a shared inbox is
-often worse than a human telling another human.
+## 4. Removing someone
 
-## 5. Revoking access
+Two different things, both owner-only:
 
-"Revoke access" clears `users.password_hash`. The account row stays, because every historical
-`sales.created_by`, `voided_by` and settlement record must still resolve to a person. A revoked user
-simply cannot sign in; there is no anonymous gap in the audit trail.
+| | What happens | Use when |
+|---|---|---|
+| **Revoke access** | Clears `password_hash`. Cannot sign in. Account and name stay on past records. | They have left but the history should still name them |
+| **Remove account** | Deletes the row. Past sales keep their rows; the `created_by` id points at nothing, so no name is shown | You want them gone entirely |
 
-Sessions are valid for 7 days and are not individually revocable, so revocation takes effect at the
-next sign-in attempt — clear the password, and also change it anywhere the person could log in
-immediately if it matters. Rotating `AUTH_SECRET` signs everyone out at once.
+Removal requires typing the person's email back before the button works, because there is no undo.
 
-## 6. Adding a partner (different thing)
+The last owner is protected either way: you cannot demote, revoke or delete the only owner
+(`LastOwnerError`), and you cannot delete yourself — that would end your session mid-click.
 
-A partner is **money**, not login. Partners live in their own table with `user_id` optional:
+## 5. What "owner" still cannot do
 
-- Most partners do not need to sign in at all.
-- If one should see the money screens, give them a `users` row with role `PARTNER` and link it.
-- `default_share_pct` is only a default; `purchase_shares` stores the percentage actually used at the
-  time of the purchase, so adding a sixth partner never rewrites the first five settlements.
+- Cannot delete a sale, a movement or a partner. Records are voided or archived, never erased.
+- Cannot see a password. Only hashes are stored; a reset is a new password.
+- Cannot turn off the ledger. Stock always arrives through a movement with a reason.
 
-## 7. Rules a future change must not break
+## 6. Rules a future change must not break
 
-1. `requireOwner()` on every account management page **and** action. A layout guard does not protect a
-   server action.
-2. Never delete a user. Revoke by clearing the password.
-3. Never allow the last owner to be demoted or revoked (`LastOwnerError` in `src/lib/users-admin.ts`).
-4. Never add self-service signup. Accounts are created deliberately, in person.
-5. Never widen `ADMIN` to "can close cycles" without deciding, in writing, who is accountable for the
-   split.
-6. The terminal scripts (`npm run user:*`) exist for setup and lockouts. They are not a second admin
-   path: they call the same `src/lib/users-admin.ts` functions as the UI, including the last-owner
-   guard.
+1. `requireOwner()` on every account page **and** every account action. A layout guard does not protect
+   a server action.
+2. Never add a self-service signup or a fourth role without deleting this document first and writing
+   down why the five-person assumption no longer holds.
+3. Never allow the last owner to be demoted, revoked or deleted.
+4. Never delete a sale or a stock movement. Void it; the ledger keeps its trail.
+5. The terminal scripts (`npm run user:*`) call the same `src/lib/users-admin.ts` functions as the UI,
+   last-owner guard included. They are not a second implementation.

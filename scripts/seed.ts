@@ -127,14 +127,20 @@ async function main() {
         role: "ADMIN",
         passwordHash: demoHash,
       },
-      // Customers have no account in practice; this row exists to prove CUSTOMER cannot reach /admin.
-      { email: "customer@example.com", name: "Priya Customer", phone: "+919000000099", role: "CUSTOMER" },
+      // Every partner who signs in is an ADMIN; only the site owner is an OWNER.
+      {
+        email: "partner@chipssquare.in",
+        name: "Partner Two",
+        phone: "+919000000003",
+        role: "ADMIN",
+        passwordHash: demoHash,
+      },
     ])
     .returning({ id: users.id, email: users.email });
 
   const ownerId = userRows.find((u) => u.email === "owner@chipssquare.in")!.id;
   const staffId = userRows.find((u) => u.email === "staff@chipssquare.in")!.id;
-  const customerId = userRows.find((u) => u.email === "customer@example.com")!.id;
+  const partnerUserId = userRows.find((u) => u.email === "partner@chipssquare.in")!.id;
 
   const partnerRows = await db
     .insert(partners)
@@ -372,9 +378,9 @@ async function main() {
     .insert(feedback)
     .values([
       {
-        userId: customerId,
+        userId: partnerUserId,
         name: "Priya",
-        contact: "customer@example.com",
+        contact: "partner@chipssquare.in",
         type: "ITEM_REQUEST",
         body: "Can you stock the 330ml Thums Up cans instead of bottles?",
         requestedItem: "Thums Up 330ml can",

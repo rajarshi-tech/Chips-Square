@@ -56,6 +56,7 @@ src/app/                     routes (App Router, server components by default)
   admin/                     guarded back office; layout.tsx is the guard + nav
     products/                list, create (barcode -> Open Food Facts), edit, archive
     stock/                   on-hand list, per-product adjustment form + ledger history
+    sales/                   day book; new sale with product type-ahead; void with a reason
     users/                   owner-only: add people, roles, passwords, revoke
 src/components/              presentational components (no DB access)
 src/lib/
@@ -69,6 +70,8 @@ src/lib/
   catalog-admin.ts           product writes: slug rules, duplicate guard, archive
   stock-rules.ts             reason -> movement mapping (pure, tested); sets every sign
   stock-admin.ts             stock reads + adjustStock, the single write path for units
+  sales.ts                   createSale / voidSale: revenue + SALE/RETURN movements, one transaction
+  queries/sellable.ts        the counter form's product finder
   users-admin.ts             account writes: create, role, revoke, last-owner guard
   openfoodfacts.ts           barcode -> name/brand/size prefill (never the source of truth)
   queries/dashboard.ts       admin overview read model
@@ -122,11 +125,12 @@ covered in `docs/01-data-model.md`.
 13. **Every admin page and admin server action calls `requireManager()`.** The `/admin` layout guard
     covers pages only — server actions are separate entry points and a layout cannot protect them.
     Authorisation is checked server-side, always; hiding a button is not access control.
-14. **Roles are not equal, on purpose.** `OWNER` onboards people; `ADMIN` runs the shop. Account
-    management is `requireOwner()` on the page *and* the action. Exactly one rule is absolute:
-    `LastOwnerError` — the last owner with a password can never be demoted or revoked. Never delete a
-    user (clear `password_hash` to revoke) so historical `created_by` still resolves. See
-    `docs/06-roles-and-accounts.md`.
+14. **Two roles only: `OWNER` and `ADMIN`.** Owner manages accounts and settlements; admins run the
+    whole shop. Do not add `PARTNER`/`CUSTOMER` back — the shelf is public and the five people share
+    the work. Account management is `requireOwner()` on the page *and* the action. `LastOwnerError`
+    is absolute: the last owner can never be demoted, revoked or deleted, and nobody can delete
+    themselves. Revoke (clear `password_hash`) keeps a name on past records; delete removes the row
+    and the name with it. See `docs/06-roles-and-accounts.md`.
 15. **Products are archived, never deleted**, and a product's `slug` is frozen after creation — a
     rename must not break a shared link. Same-brand-same-name-same-size is rejected as a duplicate
     (unique index `products_identity_idx`); the error surfaces as `DuplicateProductError`.
@@ -178,8 +182,12 @@ archive), `/admin/stock` (adjustments with a forced reason, ledger history, rebu
 `/admin/users` (owner-only: add people, roles, passwords, revoke). `npm run user:create` creates the
 first owner, because `/admin/users` needs one to open.
 
-Not built yet: sales recording, purchases, cycles/settlement, feedback inbox. Those nav items are
-labelled "soon" rather than linked to a dead route.
+Not built yet: purchases, cycles/settlement, feedback inbox. Those nav items are labelled "soon"
+rather than linked to a dead route.
+
+**Sales**: `/admin/sales` day book with today's takings, `/admin/sales/new` with product type-ahead
+(qty capped at what is on the shelf, price editable per line), and void-with-reason, which returns
+units through `RETURN` movements. Each line snapshots `unit_cost_paise`, so COGS is frozen.
 
 The product page shows stock and "ask at the counter" — no buy button, by design.
 

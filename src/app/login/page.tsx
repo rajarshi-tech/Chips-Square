@@ -18,7 +18,7 @@ export default async function LoginPage() {
     <div className="mx-auto flex w-full max-w-sm flex-col justify-center px-5 py-16">
       <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>
       <p className="mt-2 mb-8 text-sm text-neutral-600">
-        For partners and admins managing stock. Customers can browse without an account.
+        For the owner and admins. Anyone can browse the shop without an account.
       </p>
 
       <LoginForm />

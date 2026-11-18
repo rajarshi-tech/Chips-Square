@@ -22,7 +22,7 @@ import { db } from "../src/db";
 import { users } from "../src/db/schema";
 import { createUser, EmailTakenError, setUserPassword } from "../src/lib/users-admin";
 
-const ROLES = ["OWNER", "ADMIN", "PARTNER", "CUSTOMER"] as const;
+const ROLES = ["OWNER", "ADMIN"] as const;
 type Role = (typeof ROLES)[number];
 
 function flag(args: string[], name: string): string | null {

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { requireOwner } from "@/lib/auth/session";
 import {
   createUser,
+  deleteUser,
   EmailTakenError,
   generatePassword,
   LastOwnerError,
@@ -22,7 +23,7 @@ import { eq } from "drizzle-orm";
 
 export type UserFormState = { error: string | null; created?: { email: string; password: string } };
 
-const RoleSchema = z.enum(["ADMIN", "PARTNER", "OWNER", "CUSTOMER"]);
+const RoleSchema = z.enum(["ADMIN", "OWNER"]);
 
 const CreateSchema = z.object({
   email: z.string().trim().toLowerCase().pipe(z.email("Enter a valid email address")),
@@ -144,4 +145,40 @@ export async function revokeAccessAction(formData: FormData): Promise<void> {
     throw err;
   }
   revalidatePath("/admin/users");
+}
+
+export type DeleteState = { error: string | null };
+
+/**
+ * Permanently remove an account. Owner-only, never yourself, never the last owner, and the email
+ * must be typed back exactly — a click is too cheap for something with no undo.
+ */
+export async function deleteUserAction(
+  _prev: DeleteState,
+  formData: FormData,
+): Promise<DeleteState> {
+  const actor = await requireOwner();
+  const id = String(formData.get("id") ?? "");
+  const typed = String(formData.get("confirmEmail") ?? "").trim().toLowerCase();
+  if (!id) return { error: "Missing user" };
+
+  const [row] = await db
+    .select({ email: users.email })
+    .from(users)
+    .where(eq(users.id, id))
+    .limit(1);
+  if (!row) return { error: "That account no longer exists" };
+  if (typed !== row.email) return { error: "Type the email exactly to confirm" };
+
+  try {
+    await deleteUser(id, actor.id);
+  } catch (err) {
+    if (err instanceof LastOwnerError) {
+      return { error: "That would leave nobody able to manage accounts." };
+    }
+    throw err;
+  }
+
+  revalidatePath("/admin/users");
+  return { error: null };
 }

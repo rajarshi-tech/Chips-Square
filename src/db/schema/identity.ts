@@ -5,7 +5,8 @@ import { userRole } from "./enums";
 /**
  * Identity.
  *
- * `CUSTOMER` is now a read-only role: they browse stock and submit feedback, nothing else.
+ * Everyone who can sign in is `ADMIN` (runs the shop) or `OWNER` (also manages accounts). Customers
+ * need no account: the shop is public.
  * Admins manage inventory; partners see the money side.
  *
  * A `partners` row is the *financial* identity (someone who owns a share of the pool) and is
@@ -17,7 +18,7 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   phone: text("phone").unique(),
   name: text("name"),
-  role: userRole("role").notNull().default("CUSTOMER"),
+  role: userRole("role").notNull().default("ADMIN"),
   /**
    * scrypt hash in a self-describing string (see src/lib/auth/password.ts).
    * Null means the account cannot sign in yet — set it with `npm run user:password`.

@@ -23,14 +23,12 @@ export default async function AdminUsersPage() {
       <div>
         <h1 className="text-xl font-semibold tracking-tight">People</h1>
         <p className="mt-1 max-w-2xl text-sm text-neutral-600">
-          One owner brings people in; they are not equal by default. An <strong>admin</strong> runs
-          the shop — products, stock, sales, purchases. An <strong>owner</strong> can also change
-          roles, add accounts and close settlements. Keep the number of owners small (one or two),
-          because an owner can do everything.
+          Two roles, nothing in between. You are the <strong>owner</strong> — you decide who gets in.
+          Everyone else is an <strong>admin</strong>: full run of the shop, but no access to this
+          page. Customers need no account at all.
         </p>
         <p className="mt-2 text-xs text-neutral-500">
-          {people.length} accounts · {counts.OWNER ?? 0} owner · {counts.ADMIN ?? 0} admin ·{" "}
-          {counts.PARTNER ?? 0} partner
+          {people.length} accounts · {counts.OWNER ?? 0} owner · {counts.ADMIN ?? 0} admin
         </p>
       </div>
 
@@ -44,8 +42,9 @@ export default async function AdminUsersPage() {
           ))}
         </ul>
         <p className="mt-3 text-xs text-neutral-500">
-          Revoking clears the password and blocks sign-in; the account stays so past sales still
-          show who recorded them. Everything here is owner-only.
+          <strong>Revoke</strong> clears the password and blocks sign-in, but keeps the account so past
+          sales still show who recorded them. <strong>Remove</strong> deletes the account outright —
+          past sales keep their rows, but stop showing a name. Everything here is owner-only.
         </p>
       </div>
     </div>

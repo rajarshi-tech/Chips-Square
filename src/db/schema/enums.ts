@@ -5,7 +5,9 @@ import { pgEnum } from "drizzle-orm/pg-core";
  * Adding a value to a pgEnum needs its own migration — see docs/05-runbook.md "changing an enum".
  */
 
-export const userRole = pgEnum("user_role", ["CUSTOMER", "PARTNER", "ADMIN", "OWNER"]);
+// Two roles only: the site owner, and everyone else who runs the shop. Five people share the work;
+// one of them owns the website and decides who gets access.
+export const userRole = pgEnum("user_role", ["OWNER", "ADMIN"]);
 
 export const supplier = pgEnum("supplier", [
   "BLINKIT",

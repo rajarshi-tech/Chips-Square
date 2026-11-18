@@ -250,6 +250,24 @@ opens.
   `password_hash` and keeps the row, so `created_by` never becomes a mystery. The last owner cannot
   be demoted or revoked (`LastOwnerError`). Written up in `docs/06-roles-and-accounts.md`.
 
+### Counter sales, two roles, and deleting an account
+
+- **Sales recording is in**, the last thing the profit split needs: `/admin/sales` (day book, today's
+  takings) and `/admin/sales/new` (type-ahead offering only what is on the shelf, qty capped at
+  on-hand, editable price per line).
+- `createSale` is one transaction: resolve the open cycle (creating the month's if missing), snapshot
+  `unit_cost_paise` per line, insert sale + items, then a `SALE` movement per line. Verified on PGlite:
+  2 + 1 units left the shelf, ₹56 taken, and voiding returned both counts to their starting numbers.
+- Voiding requires a reason, writes `RETURN` movements, and drops the sale from revenue *and* from the
+  unit count — a voided sale is history, not takings.
+- **Roles cut from four to two.** `PARTNER` and `CUSTOMER` are gone: the shelf is public and the five
+  people share the same work. Owner manages accounts; admins run the shop. Shrinking a `pgEnum` needs a
+  real migration (drizzle-kit emits a text-cast round trip) and it fails on a database that still holds
+  a removed value — noted in the runbook.
+- **Accounts can now be deleted**, not only revoked. Removal asks for the email to be typed back,
+  refuses to delete yourself, and refuses to remove the last owner. The trade is stated in the UI: past
+  sales keep their rows but lose the name attached to them. Revoke stays the option that preserves it.
+
 ### Auth: email + password, hand-rolled, no vendor
 
 Chose the simplest thing that still identifies individuals, after weighing Google OAuth, email magic

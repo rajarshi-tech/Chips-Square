@@ -96,6 +96,7 @@ All routes are dynamic, so anything that works locally works deployed.
 | Staff cannot sign in | no `password_hash` on the row | `npm run user:password -- <email>` |
 | Nobody can sign in at all | no usable owner account | `npm run user:create -- you@example.com --role OWNER --generate`, or reset the owner with `npm run user:password` |
 | Stock number looks wrong | stale cache or a hand-written movement | open the product in `/admin/stock` and press "Rebuild count from ledger"; the ledger wins |
+| Migration `0002` fails on `USING role::user_role` | the database still holds `PARTNER`/`CUSTOMER` accounts | run `UPDATE users SET role='ADMIN' WHERE role::text NOT IN ('OWNER','ADMIN');` first, then migrate |
 | Locked out after 8 bad passwords | in-process throttle, 15-minute window | restart the server, or wait |
 | `relation "…" does not exist` | migration not applied | `npm run db:migrate` |
 

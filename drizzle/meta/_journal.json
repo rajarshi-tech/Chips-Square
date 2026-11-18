@@ -15,6 +15,13 @@
       "when": 1795024231444,
       "tag": "0001_user-passwords",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795028038944,
+      "tag": "0002_roles-owner-admin",
+      "breakpoints": true
     }
   ]
 }

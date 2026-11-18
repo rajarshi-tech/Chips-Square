@@ -51,7 +51,7 @@ export type AdminProductRow = {
   lowStockThreshold: number | null;
 };
 
-/** Postgres unique violation. Drizzle wraps it, so the SQLSTATE can be one or two levels down. */
+/* Postgres unique violation. Drizzle wraps it, so the SQLSTATE can be one or two levels down. */
 function isUniqueViolation(err: unknown): boolean {
   let current: unknown = err;
   for (let depth = 0; depth < 4 && current; depth += 1) {

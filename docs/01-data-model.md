@@ -15,15 +15,15 @@ users
   email         text unique not null
   phone         text unique
   name          text
-  role          enum('CUSTOMER','PARTNER','ADMIN','OWNER') default 'CUSTOMER'
+  role          enum('OWNER','ADMIN') default 'ADMIN'
   password_hash text null              // scrypt, self-describing; null = cannot sign in
   last_login_at timestamptz
   created_at    timestamptz
 ```
 
-Roles are additive in practice: an `ADMIN` can also be a buyer. Keep one `role` column for gating and
-treat `PARTNER` as "has a partner row + read access to finance". `CUSTOMER` is read-only: they browse
-the shelf and submit feedback, nothing else.
+Two roles, by design: `OWNER` (one person — manages accounts) and `ADMIN` (runs the shop). Customers
+have no account; the shelf is public. Partners are a *money* concept in their own table, not a login
+role. See `docs/06-roles-and-accounts.md`.
 
 **Sign-in is email + password, nothing else.** No OAuth app, no email vendor, no self-service signup
 or reset — there are five people and they are reachable in person. An admin sets a password with
@@ -331,7 +331,7 @@ no expiry, no partial state, and therefore nothing to reconcile against an unpai
 
 ## 12. Seeding
 
-`npm run db:seed` inserts: 5 partners, 3 users (OWNER, ADMIN, CUSTOMER), a settings row, 12 products,
+`npm run db:seed` inserts: 5 partners, 3 users (1 owner, 2 admins), a settings row, 12 products,
 one historical Blinkit purchase with 5-way shares, two counter sales, one expense, a **draft**
 settlement with the profit split, and two feedback entries.
 

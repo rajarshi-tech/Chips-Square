@@ -1,20 +1,27 @@
 "use client";
 
 import { useActionState } from "react";
-import { resetPasswordAction, revokeAccessAction, setRoleAction, type PasswordState } from "./actions";
+import {
+  deleteUserAction,
+  resetPasswordAction,
+  revokeAccessAction,
+  setRoleAction,
+  type DeleteState,
+  type PasswordState,
+} from "./actions";
 import type { AdminUserRow } from "@/lib/users-admin";
 
 const initialState: PasswordState = { error: null };
+const initialDeleteState: DeleteState = { error: null };
 
 const ROLE_NOTE: Record<string, string> = {
   OWNER: "everything, including people and settlements",
-  ADMIN: "products, stock, sales, purchases",
-  PARTNER: "reads money and their own balance",
-  CUSTOMER: "browse only",
+  ADMIN: "products, stock, sales, purchases — not people",
 };
 
 export function UserRow({ user, isSelf }: { user: AdminUserRow; isSelf: boolean }) {
   const [state, formAction, pending] = useActionState(resetPasswordAction, initialState);
+  const [deleteState, deleteAction, deleting] = useActionState(deleteUserAction, initialDeleteState);
 
   return (
     <li className="rounded-xl border border-black/10 p-4">
@@ -49,7 +56,7 @@ export function UserRow({ user, isSelf }: { user: AdminUserRow; isSelf: boolean 
             aria-label={`Role for ${user.email}`}
             className="rounded-lg border border-black/15 bg-white px-2 py-1.5 text-xs"
           >
-            {(["OWNER", "ADMIN", "PARTNER", "CUSTOMER"] as const).map((role) => (
+            {(["ADMIN", "OWNER"] as const).map((role) => (
               <option key={role} value={role}>
                 {role}
               </option>
@@ -86,21 +93,51 @@ export function UserRow({ user, isSelf }: { user: AdminUserRow; isSelf: boolean 
         </form>
 
         {isSelf ? null : (
-          <form action={revokeAccessAction}>
-            <input type="hidden" name="id" value={user.id} />
-            <button
-              type="submit"
-              className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-red-700 transition hover:bg-red-50"
-            >
-              Revoke access
-            </button>
-          </form>
+          <>
+            <form action={revokeAccessAction}>
+              <input type="hidden" name="id" value={user.id} />
+              <button
+                type="submit"
+                className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-amber-700 transition hover:bg-amber-50"
+              >
+                Revoke access
+              </button>
+            </form>
+
+            <details className="ml-auto">
+              <summary className="cursor-pointer rounded-lg px-2.5 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50">
+                Remove account
+              </summary>
+              <form action={deleteAction} className="mt-2 flex flex-wrap items-center gap-2">
+                <input type="hidden" name="id" value={user.id} />
+                <input
+                  name="confirmEmail"
+                  required
+                  placeholder={`Type ${user.email} to confirm`}
+                  aria-label={`Type ${user.email} to confirm deletion`}
+                  className="w-56 rounded-lg border border-black/15 bg-white px-2.5 py-1.5 text-xs"
+                />
+                <button
+                  type="submit"
+                  disabled={deleting}
+                  className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
+                >
+                  {deleting ? "Removing…" : "Delete permanently"}
+                </button>
+              </form>
+            </details>
+          </>
         )}
       </div>
 
       {state.error ? (
         <p role="alert" className="mt-2 rounded-lg bg-red-50 px-2.5 py-1.5 text-xs text-red-800">
           {state.error}
+        </p>
+      ) : null}
+      {deleteState.error ? (
+        <p role="alert" className="mt-2 rounded-lg bg-red-50 px-2.5 py-1.5 text-xs text-red-800">
+          {deleteState.error}
         </p>
       ) : null}
       {state.reset ? (

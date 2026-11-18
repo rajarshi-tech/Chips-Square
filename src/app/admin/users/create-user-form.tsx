@@ -36,10 +36,8 @@ export function CreateUserForm() {
         <label className="block space-y-1.5">
           <span className="block text-xs font-medium">Role</span>
           <select name="role" defaultValue="ADMIN" className={input}>
-            <option value="ADMIN">Admin — manages stock, sales, purchases</option>
-            <option value="PARTNER">Partner — reads money, sees own balance</option>
-            <option value="OWNER">Owner — can also add people and close cycles</option>
-            <option value="CUSTOMER">Customer — browse only, no login needed</option>
+            <option value="ADMIN">Admin — everything except managing people</option>
+            <option value="OWNER">Owner — also manages people and settlements</option>
           </select>
         </label>
 
