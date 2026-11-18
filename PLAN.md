@@ -214,6 +214,24 @@ Details and acceptance criteria in `docs/04-roadmap.md`.
 Newest first. Anything that surprises a future reader belongs here, not in a commit message nobody
 opens.
 
+### Product admin and accounts
+
+- `/admin/products`: one list with search and Low/Out/Archived tabs, one form reused for create and
+  edit, live sell-price preview (the same `computeSellPrice` the shop uses, so the preview cannot
+  disagree with the shelf).
+- Barcode → Open Food Facts prefill. Saves typing on a snack nobody wants to name twice; the admin
+  confirms because the data is crowd-sourced. Verified live against a Lay's barcode.
+- **Slugs are generated once and frozen**, so renaming a product does not break a link someone
+  shared. Collisions get `-2`, `-3`.
+- Duplicate guard is the database index on `brand+name+size`, surfaced as `DuplicateProductError`.
+  Drizzle wraps PGlite's SQLSTATE in `cause`, so the check walks the cause chain — a bug found by the
+  smoke test, not by reading the docs.
+- Archiving hides a product from the shop and keeps every historical sale and movement intact.
+- `/admin/users` is owner-only: **one owner onboards everyone else**, admins run the shop but cannot
+  add accounts. Generated passwords are shown once (there is no email delivery). Revoking clears
+  `password_hash` and keeps the row, so `created_by` never becomes a mystery. The last owner cannot
+  be demoted or revoked (`LastOwnerError`). Written up in `docs/06-roles-and-accounts.md`.
+
 ### Auth: email + password, hand-rolled, no vendor
 
 Chose the simplest thing that still identifies individuals, after weighing Google OAuth, email magic

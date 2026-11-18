@@ -88,6 +88,16 @@ export async function requireUser(): Promise<SessionUser> {
 }
 
 /**
+ * Owner-only actions: creating accounts, changing roles, revocation. Admins keep the shop running;
+ * an owner decides who else can.
+ */
+export async function requireOwner(): Promise<SessionUser> {
+  const user = await requireUser();
+  if (user.role !== "OWNER") redirect("/admin");
+  return user;
+}
+
+/**
  * For pages and actions that need a manager. Returns 404-ish behaviour via redirect rather than
  * revealing that an admin area exists to a signed-in customer.
  */

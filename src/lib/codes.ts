@@ -41,6 +41,21 @@ export function slugify(input: string): string {
 }
 
 /**
+ * Turn a base slug into one that is not already taken, by appending -2, -3, … The caller supplies
+ * the taken set (usually a single query for slugs starting with the base).
+ */
+export function uniqueSlug(base: string, taken: Iterable<string>): string {
+  const stem = slugify(base) || "product";
+  const used = new Set(taken);
+  if (!used.has(stem)) return stem;
+  for (let n = 2; n < 1000; n += 1) {
+    const candidate = `${stem}-${n}`;
+    if (!used.has(candidate)) return candidate;
+  }
+  return `${stem}-${randomCode(4).toLowerCase()}`;
+}
+
+/**
  * Normalise a product identity for duplicate detection: brand + name + size, ignoring case,
  * spaces and punctuation. Mirrors the unique index in the catalog schema.
  */

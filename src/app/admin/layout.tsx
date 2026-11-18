@@ -12,14 +12,16 @@ export const dynamic = "force-dynamic";
 
 const NAV = [
   { href: "/admin", label: "Overview", ready: true },
-  { href: "/admin/products", label: "Products", ready: false },
+  { href: "/admin/products", label: "Products", ready: true },
   { href: "/admin/stock", label: "Stock", ready: false },
   { href: "/admin/sales", label: "Sales", ready: false },
   { href: "/admin/purchases", label: "Purchases", ready: false },
   { href: "/admin/cycles", label: "Cycles", ready: false },
   { href: "/admin/partners", label: "Partners", ready: false },
   { href: "/admin/feedback", label: "Feedback", ready: false },
+  { href: "/admin/users", label: "People", ready: true, ownerOnly: true },
 ] as const;
+
 
 /**
  * The guard sits here, not only in individual pages: every admin route inherits it. Individual
@@ -50,7 +52,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
       <nav aria-label="Admin sections" className="-mx-1 mb-8 overflow-x-auto">
         <ul className="flex gap-1 px-1">
-          {NAV.map((item) => (
+          {NAV.filter((item) => !("ownerOnly" in item) || user.role === "OWNER").map((item) => (
             <li key={item.href}>
               {item.ready ? (
                 <Link

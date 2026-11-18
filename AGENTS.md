@@ -54,6 +54,8 @@ src/app/                     routes (App Router, server components by default)
   login/                     email + password form, redirects to /admin on success
   logout/actions.ts          sign out (a POST-style action, never a GET link)
   admin/                     guarded back office; layout.tsx is the guard + nav
+    products/                list, create (barcode -> Open Food Facts), edit, archive
+    users/                   owner-only: add people, roles, passwords, revoke
 src/components/              presentational components (no DB access)
 src/lib/
   money.ts                   integer-paise maths. The most important file in the repo.
@@ -63,6 +65,10 @@ src/lib/
   auth/token.ts              signed session cookie: sign + verify (pure, tested)
   auth/session.ts            cookie <-> user, getSessionUser, requireUser, requireManager
   auth/throttle.ts           in-process login rate limit
+  catalog-admin.ts           product writes: slug rules, duplicate guard, archive
+  users-admin.ts             account writes: create, role, revoke, last-owner guard
+  openfoodfacts.ts           barcode -> name/brand/size prefill (never the source of truth)
+  queries/dashboard.ts       admin overview read model
   settings.ts                cached settings row with defaults
   upi.ts                     UPI deep links, UTR normalisation (counter QR, partner transfers)
   codes.ts                   sale codes, pickup/short codes, slugs
@@ -113,7 +119,17 @@ covered in `docs/01-data-model.md`.
 13. **Every admin page and admin server action calls `requireManager()`.** The `/admin` layout guard
     covers pages only — server actions are separate entry points and a layout cannot protect them.
     Authorisation is checked server-side, always; hiding a button is not access control.
-14. **No reservations, holds, carts or online payments.** This was designed, built, then removed at
+14. **Roles are not equal, on purpose.** `OWNER` onboards people; `ADMIN` runs the shop. Account
+    management is `requireOwner()` on the page *and* the action. Exactly one rule is absolute:
+    `LastOwnerError` — the last owner with a password can never be demoted or revoked. Never delete a
+    user (clear `password_hash` to revoke) so historical `created_by` still resolves. See
+    `docs/06-roles-and-accounts.md`.
+15. **Products are archived, never deleted**, and a product's `slug` is frozen after creation — a
+    rename must not break a shared link. Same-brand-same-name-same-size is rejected as a duplicate
+    (unique index `products_identity_idx`); the error surfaces as `DuplicateProductError`.
+16. **Stock is never typed into the product form.** Creating a product leaves `on_hand` at 0; stock
+    arrives through a purchase or an adjustment, so every unit has a ledger entry.
+17. **No reservations, holds, carts or online payments.** This was designed, built, then removed at
     the owner's request because it was solving the wrong problem. Read `docs/02 §1` before proposing
     anything adjacent. If pre-orders are ever genuinely needed, the only acceptable shape is
     pay-first with a signed gateway webhook — never hold stock for an unpaid order.
@@ -152,9 +168,11 @@ Phase 0 and the public half of Phase 1 are done: schema (21 tables), migrations,
 inventory libraries with 25 tests, and a **read-only public shelf** (home, catalogue, product,
 how-it-works, working feedback form).
 
-Auth is done (email + password, signed session cookie, role guards, `/login`, `/admin` dashboard
-with live stock value, today's takings, recent sales, low stock). The rest of `/admin/**` — products,
-stock adjustments, sales recording, purchases, cycles, settlement — is **not built yet**, and those
+Done: auth (email + password, signed session cookie, role guards, `/login`), `/admin` overview,
+`/admin/products` (list, create with barcode prefill, edit, archive/restore), `/admin/users`
+(owner-only: add people, set roles, reset passwords, revoke).
+
+Not built yet: stock adjustments, sales recording, purchases, cycles/settlement, feedback inbox. Those
 nav items are labelled "soon" rather than linked to a dead route.
 
 The product page shows stock and "ask at the counter" — no buy button, by design.

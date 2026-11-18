@@ -28,10 +28,13 @@ convenience features. Each phase ends with something you can actually use.
       every admin page and action, `/login`, sign out, login throttling. No OAuth, no email vendor.
 - [x] `/admin` shell + navigation, protected by role, `/admin` overview (stock value, today's
       takings, recent sales, low stock). Unbuilt sections are labelled "soon", not linked.
-- [ ] `/admin/products`: list, create (barcode scan → Open Food Facts prefill → image upload),
-      inline edit, duplicate detection, bulk discount apply, CSV import.
+- [x] `/admin/products`: list with search + low/out/archived tabs, create with barcode → Open Food
+      Facts prefill, edit, archive/restore, duplicate detection (`brand+name+size`), live sell-price
+      preview, frozen slugs.
+- [x] `/admin/users` (owner-only): add accounts, roles, generated passwords shown once, revoke.
 - [ ] `/admin/stock`: adjustment form (type, qty, **required note**) + movement history per product.
 - [ ] Image upload pipeline → WebP, ≤100 KB, 1:1, served from own storage.
+- [ ] Bulk discount apply + CSV import (nice-to-have, not needed for the first 100 SKUs).
 
 **Done when:** you can add a real product from your shelf on a phone, set a discount, apply it to all
 chips, and see it in the public catalogue with the correct count. You stop using the notes app for the
