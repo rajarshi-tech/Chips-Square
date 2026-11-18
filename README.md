@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Chips Square
 
-## Getting Started
+Storefront and back-office for a small buying club: partners pool money to buy snacks and essentials
+in bulk at discount, stock is tracked properly, customers reserve online and pay by UPI, and the
+profit of each batch is split fairly.
 
-First, run the development server:
+**Status:** early. Public storefront is live on seed data; reservations, auth and the admin area are
+next. See [`PLAN.md`](./PLAN.md) and [`docs/04-roadmap.md`](./docs/04-roadmap.md).
+
+## Quick start
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run db:migrate      # creates the local database (PGlite — nothing to install)
+npm run db:seed         # demo partners, products, orders
+npm run dev             # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## What works today
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Route | What it does |
+|---|---|
+| `/` | hero, biggest discounts, how it works |
+| `/catalog` | live stock, search, category filter, 4 sort modes |
+| `/product/[slug]` | MRP struck through, our price, saving, real availability |
+| `/how-it-works` | the rules: holds, payment verification, fair use |
+| `/feedback` | working item-request / feedback form (server action) |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Prices and availability come from the database, not fixtures. `available` is
+`on hand − open reservations`, so an item held by someone else shows as reserved.
 
-## Learn More
+## Stack
 
-To learn more about Next.js, take a look at the following resources:
+Next.js 16 (App Router, Turbopack) · TypeScript · Tailwind CSS v4 · Postgres via Drizzle ORM ·
+PGlite for local dev · Vitest. Deploys to Vercel.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Scripts
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npm run dev | build | start
+npm run typecheck | lint | test
+npm run db:generate | db:migrate | db:seed | db:reset | db:studio
+```
 
-## Deploy on Vercel
+## Docs
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+| File | Contents |
+|---|---|
+| [AGENTS.md](./AGENTS.md) | rules and invariants for anyone (human or AI) editing this repo |
+| [PLAN.md](./PLAN.md) | the plan: requirements, money model, pages, risks |
+| [docs/00-decisions.md](./docs/00-decisions.md) | why the stack, why manual product data, why pay-first |
+| [docs/01-data-model.md](./docs/01-data-model.md) | every table, derived stock queries, settlement maths |
+| [docs/02-reservations-and-payments.md](./docs/02-reservations-and-payments.md) | the abuse analysis and the TTL/UTR design |
+| [docs/03-product-data-sourcing.md](./docs/03-product-data-sourcing.md) | why we do not scrape Blinkit/Flipkart |
+| [docs/04-roadmap.md](./docs/04-roadmap.md) | phases and acceptance criteria |
+| [docs/05-runbook.md](./docs/05-runbook.md) | setup, migrations, troubleshooting |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Contributing
+
+Read `AGENTS.md` §4 before touching money or stock. The short version: integer paise, append-only
+stock ledger, derived availability, splits via `splitEvenly`, and never trust a payment screenshot.

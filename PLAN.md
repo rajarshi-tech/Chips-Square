@@ -3,7 +3,7 @@
 > A shared-buy club storefront: partners pool money to buy discounted bulk stock, inventory is
 > tracked properly, customers buy/reserve online, and every rupee splits fairly.
 
-**Status:** planning. No code yet.
+**Status:** building. Phase 0 complete, public storefront live on seed data.
 **Read in this order:** this file → `docs/00-decisions.md` → `docs/01-data-model.md` →
 `docs/02-reservations-and-payments.md` → `docs/03-product-data-sourcing.md` → `docs/04-roadmap.md`
 
@@ -205,3 +205,36 @@ Details and acceptance criteria in `docs/04-roadmap.md`.
 3. Is "cycle" per purchase batch, or a rolling pool you settle monthly? Plan assumes per batch.
 4. Pickup only, or any delivery? Plan assumes pickup.
 5. Who receives ops notifications — one phone, or a Telegram group?
+
+
+---
+
+## 12. Change log
+
+Newest first. Anything that surprises a future reader belongs here, not in a commit message nobody
+opens.
+
+### Phase 0 complete — foundations
+- Next.js **16.4** (not 15 — 16 is what `create-next-app` installs), React 19, Tailwind v4, Drizzle
+  0.45. Docs said 15 because that was current when the plan was written.
+- **Local dev runs on PGlite**, not a downloaded Postgres. There was no Docker and no `psql` on the
+  dev machine; PGlite gives real SQL with zero install and the same migrations as production.
+  It must stay in `serverExternalPackages` or `next build` fails — see `docs/05-runbook.md`.
+- The database handle is a **lazy proxy**. Creating a connection at import time broke prerendering
+  and leaked file locks on Windows.
+- `cacheComponents` was removed from `next.config.ts`. With it on, every DB read needs an explicit
+  cache boundary, and a cached catalogue that shows sold-out items is worse than a slower page.
+- Added `stock_levels` as a cache of `SUM(stock_movements)` with weighted average cost. The plan
+  said "derive everything"; deriving is still the rule, but the dashboard and settlement need stock
+  *valuation* in one query, and a cache rebuilt from the ledger cannot drift.
+- Added `waitlist_entries` to the schema in phase 0 (used in phase 3) so the first migration is the
+  only one touching queue semantics.
+- Product slugs are derived from `name + size`, not `brand + name + size` — brands are stored
+  separately and the concatenation produced `lay-s-lay-s-classic-salted`.
+
+### Decisions still open (blocking later phases)
+1. Registered entity / PAN for gateway KYC, or manual UPI only for v1?
+2. Are partners also customers in the UI?
+3. Is a "cycle" one purchase batch, or a rolling monthly pool?
+4. Pickup only? (assumed yes)
+5. Who receives ops notifications — one phone or a Telegram group?

@@ -5,24 +5,27 @@ payment problem. Each phase ends with something you can actually use.
 
 ---
 
-## Phase 0 — Foundations (2 days)
+## Phase 0 — Foundations (2 days) ✅ done
 
-- [ ] Decide the open questions in `PLAN.md` §11.
-- [ ] Accounts: GitHub repo, Vercel, Supabase (or Neon), Resend, domain, Telegram bot token.
-- [ ] `create-next-app` (TS, App Router, Tailwind), shadcn/ui init, ESLint + Prettier.
-- [ ] Drizzle setup, `.env.example`, migration workflow (`drizzle-kit generate` + `migrate`).
-- [ ] Full schema from `docs/01-data-model.md` as migration #1.
-- [ ] Seed script (5 partners, owner user, settings, 10 products, 1 purchase, 1 settled cycle).
-- [ ] Money helpers: `formatINR(paise)`, `parseINR(str)`, `roundPaise()`, `upiIntent({amount, code})`.
-  Unit tests for all of them — this is the code most likely to be subtly wrong.
+- [ ] Decide the open questions in `PLAN.md` §11.  ← still open, needs the owner
+- [ ] Accounts: GitHub repo, Vercel, Supabase (or Neon), Resend, domain, Telegram bot token.  ← pending
+- [x] `create-next-app` (TS, App Router, Tailwind), ESLint. (shadcn/ui skipped: the few components
+      needed were written directly — revisit only if the admin area grows.)
+- [x] Drizzle setup, `.env.example`, migration workflow, PGlite for zero-install local Postgres.
+- [x] Full schema (22 tables) as migration `0000_init`.
+- [x] Seed script (5 partners, 3 users, settings, 12 products, purchase + shares, 3 orders,
+      draft settlement, feedback).
+- [x] Money helpers (`rupeesToPaise`, `formatINR`, `pctOf`, `computeSellPrice`, `splitEvenly`) and
+      UPI helpers (`buildUpiUri`, `normaliseUtr`) with 25 unit tests.
 
 **Done when:** `npm run dev` shows a page, `db:seed` runs clean, one test asserts `₹249.50 ↔ 24950`.
 
-## Phase 1 — Catalog + admin inventory (1 week)
+## Phase 1 — Catalog + admin inventory (1 week) — public half done
 
 - [ ] Auth (Google + email magic link), `users.role`, `requireRole()` guard on every admin route.
-- [ ] Public: `/`, `/catalog` (search, brand/category filter, stock state), `/product/:slug`.
-- [ ] Price display: MRP struck through, price, savings %, discount badge.
+- [x] Public: `/`, `/catalog` (search, category filter, stock state, 4 sorts), `/product/:slug`,
+      `/how-it-works`, `/not-found`.
+- [x] Price display: MRP struck through, price, savings %, discount badge, stock badge.
 - [ ] Admin `/admin/products`: list + inline edit, create form with barcode scan, OFF lookup, image
       upload, duplicate check, discount %, bulk discount apply.
 - [ ] Admin `/admin/stock`: adjustment form (type, qty, note — note required) + movement history per
@@ -67,9 +70,10 @@ and the split is arithmetically identical to what you'd have done in the notes a
 
 **Done when:** all of `docs/02` §10 passes, including the two-simultaneous-reserves test.
 
-## Phase 4 — Feedback (3 days)
+## Phase 4 — Feedback (3 days) — form done early
 
-- [ ] `/feedback`: type, message, optional requested item, optional contact; captcha + rate limit.
+- [x] `/feedback`: type, message, optional requested item, optional contact; zod validation +
+      honeypot. Captcha + per-IP rate limit still to do.
 - [ ] Admin inbox sorted by votes; statuses; note field.
 - [ ] "Add to next purchase" → pre-filled product or purchase line.
 - [ ] Weekly digest email to partners: new requests grouped by keyword.
