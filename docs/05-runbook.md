@@ -10,7 +10,7 @@ Operational how-to. If you only read one section, read **Local setup** and **Mig
 git clone <repo> && cd "Chips Square"
 npm install
 npm run db:migrate     # creates ./.pglite and applies schema
-npm run db:seed        # demo data: 5 partners, 12 products, one purchase, orders
+npm run db:seed        # demo data: 5 partners, 12 products, one purchase, two sales
 npm run dev            # http://localhost:3000
 ```
 
@@ -89,6 +89,7 @@ All routes are dynamic, so anything that works locally works deployed.
 | `EACCES`/file-lock errors on Windows | two dev servers holding `./.pglite` | stop the other server, or `npm run db:reset` |
 | Seed prints `refusing without --force` | `DATABASE_URL` is set | intentional guard; pass `--force` only if you really mean it |
 | Stock looks wrong | someone mutated a row by hand | the ledger is truth: check `stock_movements`, then call `refreshStockLevel` |
+| A sale was entered wrong | human error | void it (`voided_at` + `RETURN` movements); never delete the row |
 | `relation "…" does not exist` | migration not applied | `npm run db:migrate` |
 
 ## Reading the numbers (for the owner, not the dev)

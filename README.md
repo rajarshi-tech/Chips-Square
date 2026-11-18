@@ -1,18 +1,21 @@
 # Chips Square
 
-Storefront and back-office for a small buying club: partners pool money to buy snacks and essentials
-in bulk at discount, stock is tracked properly, customers reserve online and pay by UPI, and the
-profit of each batch is split fairly.
+Inventory back-office with a public window, for a small buying club: partners pool money to buy
+snacks and essentials in bulk at discount, admins keep the stock count honest, everyone can see what
+is available, and the profit of each batch is split fairly.
 
-**Status:** early. Public storefront is live on seed data; reservations, auth and the admin area are
-next. See [`PLAN.md`](./PLAN.md) and [`docs/04-roadmap.md`](./docs/04-roadmap.md).
+**What it is:** admins manage inventory; users only look. No cart, no reservation, no online payment —
+see [`docs/02-sales-and-money.md`](./docs/02-sales-and-money.md) §1 for why.
+
+**Status:** early. The public read-only shelf is live on seed data; auth, the admin area, purchases,
+settlement and counter sales are next. See [`docs/04-roadmap.md`](./docs/04-roadmap.md).
 
 ## Quick start
 
 ```bash
 npm install
 npm run db:migrate      # creates the local database (PGlite — nothing to install)
-npm run db:seed         # demo partners, products, orders
+npm run db:seed         # demo partners, products, a bulk purchase and two sales
 npm run dev             # http://localhost:3000
 ```
 
@@ -20,14 +23,14 @@ npm run dev             # http://localhost:3000
 
 | Route | What it does |
 |---|---|
-| `/` | hero, biggest discounts, how it works |
+| `/` | hero, biggest discounts, how it works, live unit count |
 | `/catalog` | live stock, search, category filter, 4 sort modes |
-| `/product/[slug]` | MRP struck through, our price, saving, real availability |
-| `/how-it-works` | the rules: holds, payment verification, fair use |
+| `/product/[slug]` | MRP struck through, our price, saving, exact on-hand count |
+| `/how-it-works` | the rules: pricing, stock counts, buying, returns |
 | `/feedback` | working item-request / feedback form (server action) |
 
-Prices and availability come from the database, not fixtures. `available` is
-`on hand − open reservations`, so an item held by someone else shows as reserved.
+Stock and prices come from the database, not fixtures. Every number is derived from an append-only
+`stock_movements` ledger, so a count can always be explained.
 
 ## Stack
 
@@ -47,10 +50,10 @@ npm run db:generate | db:migrate | db:seed | db:reset | db:studio
 | File | Contents |
 |---|---|
 | [AGENTS.md](./AGENTS.md) | rules and invariants for anyone (human or AI) editing this repo |
-| [PLAN.md](./PLAN.md) | the plan: requirements, money model, pages, risks |
-| [docs/00-decisions.md](./docs/00-decisions.md) | why the stack, why manual product data, why pay-first |
+| [PLAN.md](./PLAN.md) | the plan: requirements, money model, pages, risks, change log |
+| [docs/00-decisions.md](./docs/00-decisions.md) | why the stack, why manual product data, why no reservations |
 | [docs/01-data-model.md](./docs/01-data-model.md) | every table, derived stock queries, settlement maths |
-| [docs/02-reservations-and-payments.md](./docs/02-reservations-and-payments.md) | the abuse analysis and the TTL/UTR design |
+| [docs/02-sales-and-money.md](./docs/02-sales-and-money.md) | recording a sale, voiding, partner money |
 | [docs/03-product-data-sourcing.md](./docs/03-product-data-sourcing.md) | why we do not scrape Blinkit/Flipkart |
 | [docs/04-roadmap.md](./docs/04-roadmap.md) | phases and acceptance criteria |
 | [docs/05-runbook.md](./docs/05-runbook.md) | setup, migrations, troubleshooting |
@@ -58,4 +61,4 @@ npm run db:generate | db:migrate | db:seed | db:reset | db:studio
 ## Contributing
 
 Read `AGENTS.md` §4 before touching money or stock. The short version: integer paise, append-only
-stock ledger, derived availability, splits via `splitEvenly`, and never trust a payment screenshot.
+stock ledger, on-hand is the only stock number, splits via `splitEvenly`, and no reservation feature.

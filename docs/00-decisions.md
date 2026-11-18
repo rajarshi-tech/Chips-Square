@@ -40,27 +40,32 @@ Worst case (loose items, local brands, no barcode) it's a name, a price and a ph
 > `og:title` / `og:image` to pre-fill. Best-effort only, admin always confirms, never bulk, never
 > relied upon.
 
-## D2. Stopping reservation abuse
+## D2. Selling: no reservations
 
-Full analysis in `docs/02-reservations-and-payments.md`. The headline:
+An earlier draft had customers reserve items and pay by UPI, with an admin verifying the payment.
+It was **cut**, on request and on merit. The full reasoning is in `docs/02-sales-and-money.md` §1;
+the short version:
 
-> **The exploit exists because you let people reserve for free.**
-> Change the order to *hold → pay → confirm*, with a hard expiry, and most of it disappears.
+1. **The abuse was structural.** A free hold lets anyone freeze scarce stock with no intention of
+   paying. Every mitigation — short TTLs, reputation scores, waitlists, unique UTRs, gateway
+   webhooks — was work to undo a problem that only existed because of the free hold.
+2. **The volume does not need it.** A few hundred items, sales happening in person in the same
+   building. A reservation system solves a queueing problem this club does not have.
+3. **Manual reconciliation is the weak link.** Checking UPI references by hand is the kind of chore
+   that gets skipped in week three, which produces exactly the stock drift this project exists to
+   fix.
+4. **It was the wrong half of the product.** The need is inventory management for admins plus a live
+   stock view for everyone else.
 
-Three rules carry 90% of the weight:
+So: the public site is **read-only**. An admin records a sale at the counter in one screen, which is
+what keeps revenue — and therefore the profit split — accurate.
 
-1. **A reservation is a hold with a TTL (10–15 min), not a booking.** No payment in the window →
-   stock is released automatically and the user gets a no-show strike.
-2. **Proof of payment is a UTR (12-digit UPI reference) that must be unique in the database,**
-   matched against your bank/UPI statement. Screenshots are evidence, never authority. A unique
-   constraint means one payment can never settle two orders.
-3. **Reputation.** `no_show_count` on the account. 2 strikes → prepay-only or a 7-day cooldown.
-   Scarcity + rules + a visible score is enough for a closed 5-partner club.
+If a real need for pre-orders appears later, start from a **paid-first flow with a signed gateway
+webhook**: never hold stock for an unpaid order. Do not rebuild hold-then-verify.
 
-Phase 5 upgrades this to a **gateway webhook** (Razorpay/Cashfree): payment is confirmed by a signed
-server callback, no human checks anything, refunds become one click. Cost: ~2% platform fee on UPI
-(0% MDR does not apply to the platform fee). On ₹50k/month that is ₹1,000 — cheaper than an hour of
-reconciliation per week.
+What survived from the original design, because it is still right: `payments.utr` is **unique**
+(one UPI reference can never settle two obligations), and a screenshot is evidence, never proof. That
+now protects partner transfers rather than customer payments.
 
 ## D3. Where inventory truth lives
 
@@ -93,7 +98,7 @@ reserve/receive operations transactional with `SELECT ... FOR UPDATE` on the pro
 
 | Layer | Choice | Why |
 |---|---|---|
-| Framework | Next.js 15 App Router, TypeScript | one codebase, server actions, cheap hosting |
+| Framework | Next.js 16 App Router, TypeScript | one codebase, server actions, cheap hosting |
 | UI | Tailwind + shadcn/ui | fast, consistent, mobile-first |
 | DB | Postgres — Supabase (DB+Auth+Storage) or Neon | managed, free tier, real SQL with transactions |
 | ORM | Drizzle | typed, light, plain SQL when needed |
@@ -101,7 +106,7 @@ reserve/receive operations transactional with `SELECT ... FOR UPDATE` on the pro
 | Files | Supabase Storage or Vercel Blob | product images |
 | Email | Resend | 3k/mo free, simple API |
 | Ops ping | Telegram bot → partner group | free, instant, better than email for "new reservation" |
-| Payments | manual UPI (v1) → Razorpay/Cashfree (phase 5) | ship now, automate when volume justifies |
+| Payments | none in v1 | sales are recorded at the counter; partner transfers are recorded by hand with a UTR |
 | Hosting | Vercel | zero-ops |
 
 **Deliberately not used:** microservices, Redis, a separate admin app, GraphQL, i18n, React Native.

@@ -7,13 +7,14 @@ Instructions for AI coding agents (and humans) working in this repository. Read 
 
 ## 1. What this project is
 
-**Chips Square** — a storefront and back-office for a small Indian buying club.
+**Chips Square** — an inventory back-office with a public window, for a small Indian buying club.
 
 - A handful of partners pool money to buy snacks/essentials in bulk from Blinkit, Flipkart Minutes,
   Zepto and local wholesale, at discount.
 - Purchase cost is split across partners; sales revenue lands in one central account; at the end of
   a batch ("cycle") the **profit** is split and paid out.
-- Customers browse live stock and reserve items, pay by UPI, and collect at the counter.
+- **Everyone can see live stock. Only admins can change it.** An admin records a sale at the counter
+  when goods leave the shop. There is no cart, no reservation and no online payment.
 
 The product is small on purpose: ~5 admins, a few hundred customers, a few hundred SKUs. Prefer the
 boring solution. Every extra dependency has to pay for itself.
@@ -52,11 +53,11 @@ src/app/                     routes (App Router, server components by default)
 src/components/              presentational components (no DB access)
 src/lib/
   money.ts                   integer-paise maths. The most important file in the repo.
-  inventory.ts               stock ledger writes + derived availability
+  inventory.ts               stock ledger writes, on-hand, stock valuation
   queries/products.ts        the read model the storefront pages consume
   settings.ts                cached settings row with defaults
-  upi.ts                     UPI deep links, UTR normalisation
-  codes.ts                   order codes, pickup codes, slugs
+  upi.ts                     UPI deep links, UTR normalisation (counter QR, partner transfers)
+  codes.ts                   sale codes, pickup/short codes, slugs
 src/db/
   index.ts                   lazy db singleton (PGlite or postgres-js)
   schema/*.ts                tables, split by domain, re-exported from index.ts
@@ -79,21 +80,27 @@ covered in `docs/01-data-model.md`.
    movement with a note. On-hand is `SUM(qty_delta)`; `stock_levels` is a cache rebuilt by
    `refreshStockLevel`. `DAMAGE|EXPIRY|SELF_USE|ADJUSTMENT` require a note; `PURCHASE|SALE` require
    `unit_cost_paise` (the COGS snapshot).
-4. **Availability is derived, never stored naively:**
-   `available = on_hand − Σ(open reservations)`. Open = `HOLD`/`PAYMENT_PENDING` whose
-   `hold_expires_at` is in the future, plus `PAID`/`READY`. See `getStockRows()`.
+4. **On-hand is the only stock number.** `on_hand = SUM(stock_movements.qty_delta)`, and that is what
+   customers see. Nothing is held aside for anyone — there is no `available` versus `on_hand` split,
+   because there are no reservations. Do not add one back.
 5. **A cycle settles on profit, not revenue:** `profit = revenue − cogs − expenses`. Unsold stock is
    carried forward as `closing_stock_value_paise`, never distributed. Never let the central account
    cash go below the amount being distributed.
-6. **`payments.utr` is UNIQUE.** One UPI reference can never settle two obligations. Screenshots are
+6. **Revenue comes from `sales` rows written by an admin, never from a checkout.** Sales are voidable
+   (`voided_at` + `RETURN` movements), never deletable.
+7. **`payments.utr` is UNIQUE.** One UPI reference can never settle two obligations. Screenshots are
    evidence, never proof.
-7. **Nothing auto-moves money.** The app is a ledger plus instructions. No payout APIs.
-8. **Every write to money or stock goes through an audit entry** once `src/lib/audit.ts` exists
+8. **Nothing auto-moves money.** The app is a ledger plus instructions. No payout APIs.
+9. **Every write to money or stock goes through an audit entry** once `src/lib/audit.ts` exists
    (phase 2). If it is not logged, it did not happen.
-9. **Partner shares are snapshots.** `purchase_shares` and `settlement_shares` store the percentage
-   at the time. Adding a partner later must never rewrite history.
-10. **No scraping Blinkit/Flipkart.** Product data is entered by an admin, optionally pre-filled from
+10. **Partner shares are snapshots.** `purchase_shares` and `settlement_shares` store the percentage
+    at the time. Adding a partner later must never rewrite history.
+11. **No scraping Blinkit/Flipkart.** Product data is entered by an admin, optionally pre-filled from
     Open Food Facts (attribution is required and already in the footer). See `docs/03`.
+12. **No reservations, holds, carts or online payments.** This was designed, built, then removed at
+    the owner's request because it was solving the wrong problem. Read `docs/02 §1` before proposing
+    anything adjacent. If pre-orders are ever genuinely needed, the only acceptable shape is
+    pay-first with a signed gateway webhook — never hold stock for an unpaid order.
 
 ## 5. Conventions
 
@@ -119,19 +126,22 @@ covered in `docs/01-data-model.md`.
    update `docs/01-data-model.md` in the same commit.
 3. Business rule → put it in `src/lib/` with a unit test. UI never owns a rule.
 4. Run `npm run typecheck && npm run lint && npm test && npm run build`.
-5. Commit with a scoped message (`feat(inventory): …`, `fix(orders): …`, `docs: …`). One logical
+5. Commit with a scoped message (`feat(inventory): …`, `fix(sales): …`, `docs: …`). One logical
    change per commit.
 6. Tick the matching box in `docs/04-roadmap.md` and note anything surprising in `PLAN.md` §12.
 
 ## 7. Current state
 
-Phase 0 and the front half of Phase 1 are done: schema (22 tables), migrations, seed, money/UPI/
-inventory libraries with tests, and a live public storefront (home, catalog, product, how-it-works,
-working feedback form). Reservations, auth and the admin area are **not built yet** — the "Reserve"
-button is deliberately disabled so the UI never promises something that does not exist.
+Phase 0 and the public half of Phase 1 are done: schema (21 tables), migrations, seed, money/UPI/
+inventory libraries with 25 tests, and a **read-only public shelf** (home, catalogue, product,
+how-it-works, working feedback form).
 
-Do not start Phase 3 (reservations/payments) before Phase 2 (purchases, stock ledger wiring, cycles,
-settlement), because reservation profit depends on cycle settlement being correct.
+Not built yet: auth, the whole `/admin/**` area, purchase recording, settlement, and counter sales.
+The product page therefore shows stock and "ask at the counter" — no buy button, by design.
+
+Build order is auth → product admin → phase 2 (purchases, settlement) → phase 3 (counter sales).
+Do not build sales recording before settlement maths exists, because a sale's whole purpose here is
+feeding the profit split.
 
 ## 8. Known traps
 
@@ -142,4 +152,6 @@ settlement), because reservation profit depends on cycle settlement being correc
   Steps in `docs/05-runbook.md`.
 - `npm run db:seed` truncates everything and refuses to run against `DATABASE_URL` without
   `--force`. Never wire it into anything automatic.
+- Migration history was squashed once (fresh `0000_init`, 21 tables) while reservations were removed.
+  Do not squash again now that real data could exist.
 - Vitest shares the `@/*` alias via `vitest.config.ts`; a new path alias needs adding there too.

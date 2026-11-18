@@ -16,13 +16,12 @@ users
   phone         text unique            // required before reserving; OTP-verified later
   name          text
   role          enum('CUSTOMER','PARTNER','ADMIN','OWNER') default 'CUSTOMER'
-  no_show_count int default 0
-  banned_until  timestamptz
   created_at    timestamptz
 ```
 
-Roles are additive in practice: an `ADMIN` can also buy. Keep one `role` column for gating and treat
-`PARTNER` as "has a partner row + read access to finance".
+Roles are additive in practice: an `ADMIN` can also be a buyer. Keep one `role` column for gating and
+treat `PARTNER` as "has a partner row + read access to finance". `CUSTOMER` is read-only: they browse
+the shelf and submit feedback, nothing else.
 
 ## 2. Partners
 
@@ -135,99 +134,100 @@ stock_movements
   qty_delta    int not null                  // +in / -out, never 0
   unit_cost_paise int null                   // required for PURCHASE and SALE (COGS snapshot)
   purchase_id  uuid null
-  order_id     uuid null
+  sale_id      uuid null
   note         text                          // required for DAMAGE / SELF_USE / ADJUSTMENT
   created_by   uuid fk users
   created_at   timestamptz default now()
   // append-only: no UPDATE, no DELETE. Corrections are new opposite movements.
 ```
 
-Derived values — never stored:
+Derived value — never stored, and it is the only stock number in the system:
 
 ```sql
-on_hand(p)   = (select coalesce(sum(qty_delta),0) from stock_movements where product_id = p)
-active_holds(p) = (select coalesce(sum(qty),0) from order_items oi
-                   join orders o on o.id = oi.order_id
-                   where oi.product_id = p
-                     and o.status in ('HOLD','PAYMENT_PENDING','PAID','READY')
-                     and o.hold_expires_at > now())
-available(p) = on_hand(p) - active_holds(p)
+on_hand(p) = (select coalesce(sum(qty_delta), 0) from stock_movements where product_id = p)
 ```
+
+Nothing is held back for anyone, so there is no second "available" figure to keep in sync.
 
 If this ever gets slow (it won't at your size), add a materialised view refreshed on write. Do not
 add a cached `qty` column as an optimisation — that is how the notes app problem comes back.
 
-## 6. Orders / reservations
+## 6. Sales (recorded by an admin at the counter)
+
+There are no orders, no carts and no reservations. `docs/02-sales-and-money.md` explains why.
+A sale is written by an admin when goods physically leave the shop.
 
 ```ts
-orders
-  id                uuid pk
-  code              text unique not null      // "CS-8F3K2" — used in the UPI note
-  user_id           uuid fk users
-  status            enum('HOLD','PAYMENT_PENDING','PAID','READY','FULFILLED',
-                         'CANCELLED','EXPIRED','REFUNDED') default 'HOLD'
-  subtotal_paise    int
-  discount_paise    int default 0
-  total_paise       int not null
-  hold_expires_at   timestamptz not null       // now() + settings.hold_ttl_minutes
-  declared_utr      text                       // what the customer says they sent
-  pickup_code       text                       // 4 digits, shown after PAID
-  paid_at           timestamptz
-  fulfilled_at      timestamptz
-  closed_reason     text
-  cycle_id          uuid fk cycles             // which batch this sale belongs to
-  created_at        timestamptz
+sales
+  id            uuid pk
+  code          text unique not null        // "S-DEMO01", shown on the receipt
+  cycle_id      uuid fk cycles              // which batch the revenue belongs to
+  sold_at       timestamptz default now()
+  subtotal_paise int
+  discount_paise int default 0
+  total_paise    int not null
+  method        enum('CASH','UPI','BANK_TRANSFER') default 'CASH'
+  buyer_name    text                        // optional: "Priya, 3rd floor"
+  note          text
+  created_by    uuid fk users
+  voided_at     timestamptz null             // set when the sale was entered in error
+  voided_by     uuid null
+  void_reason   text
+  created_at    timestamptz
 
-order_items
+sale_items
   id               uuid pk
-  order_id         uuid fk orders
+  sale_id          uuid fk sales (cascade)
   product_id       uuid fk products
   qty              int not null
-  unit_price_paise int not null               // price charged
-  unit_cost_paise  int not null               // COGS snapshot at time of sale
-  unique(order_id, product_id)
+  unit_price_paise int not null             // price charged
+  unit_cost_paise  int not null             // COGS snapshot, from the ledger's average
+  name_snapshot    text not null            // survives a product rename
+  unique(sale_id, product_id)
 ```
 
 Indexes that matter:
 
 ```sql
-create index on orders (status, hold_expires_at);
-create index on order_items (product_id);
-create unique index on payments (utr) where utr is not null;   -- one payment, one order
+create index on sales (cycle_id, sold_at);
+create index on sale_items (product_id);
+create unique index on payments (utr) where utr is not null;   -- one payment, one obligation
 create index on stock_movements (product_id, created_at desc);
 ```
 
-## 7. Payments — one table, four uses
+Rules enforced in code (`src/lib/sales.ts`, phase 2):
+
+- creating, updating and voiding are **transactional**: sale row + item rows + `SALE` movements +
+  `stock_levels` refresh all succeed or none do
+- qty is checked against `on_hand` **inside** that transaction, never in the browser
+- a void sets `voided_at` and writes `RETURN` movements; the row is never deleted
+- `unit_cost_paise` comes from the ledger, never from the request body
+
+## 7. Payments — partner money only
+
+Counter sales carry their own `method` and do not create payment rows. What remains in `payments` is
+the partner ledger.
 
 ```ts
 payments
   id            uuid pk
-  kind          enum('CUSTOMER_RECEIPT','PARTNER_CONTRIBUTION','PARTNER_PAYOUT','REFUND')
+  kind          enum('PARTNER_CONTRIBUTION','PARTNER_PAYOUT')
   amount_paise  int not null
-  method        enum('UPI_MANUAL','UPI_GATEWAY','CASH','BANK_TRANSFER')
+  method        enum('CASH','UPI','BANK_TRANSFER')
   direction     enum('IN','OUT')
-  utr           text null unique              // 12-digit UPI reference
-  gateway_payment_id text null unique
+  utr           text null unique            // 12-digit UPI reference
   status        enum('PENDING','VERIFIED','REJECTED') default 'PENDING'
-  order_id      uuid null fk orders            // CUSTOMER_RECEIPT / REFUND
-  purchase_share_id uuid null                  // PARTNER_CONTRIBUTION
-  settlement_share_id uuid null                // PARTNER_PAYOUT
-  proof_path    text null                      // screenshot — evidence only
+  purchase_share_id   uuid null fk purchase_shares
+  settlement_share_id uuid null             // no FK, keeps schema modules acyclic
+  proof_path    text null                   // screenshot — evidence, never proof
   verified_by   uuid null fk users
   verified_at   timestamptz
   note          text
   created_at    timestamptz
 ```
 
-Why one table: the admin sees one "awaiting verification" queue for everything, and the unique UTR
-constraint protects partner transfers from the same double-claim problem as customer payments.
-
-Rules enforced in code:
-
-- A `CUSTOMER_RECEIPT` can only be `VERIFIED` if it is linked to an `orders` row that is not already
-  paid, and `amount_paise >= order.total_paise`.
-- Verifying a receipt moves the order to `PAID` and writes the `SALE` movements + commits the hold.
-- Rejecting writes `REJECTED` and leaves the order to expire normally.
+Why one table for both directions: the admin sees one reconcile queue, and the unique UTR constraint
+protects partner transfers from the same double-claim problem it protects anything else from.
 
 ## 8. Settlement
 
@@ -251,8 +251,8 @@ Computation, in one tested function (`lib/settle.ts`) so it can be unit-tested a
 anyone presses the button:
 
 ```
-revenue  = Σ orders.total where status IN ('FULFILLED') and cycle_id = C
-cogs     = Σ order_items.unit_cost * qty for those orders
+revenue  = Σ sales.total_paise where voided_at is null and cycle_id = C
+cogs     = Σ sale_items.unit_cost_paise * qty for those sales
 expenses = Σ expenses.amount for C
 profit   = revenue - cogs - expenses
 closing  = Σ (on_hand(product) * weighted_avg_cost(product)) for products in C
@@ -287,34 +287,53 @@ product form pre-filled with `requested_item`.
 audit_log
   id, actor_user_id, entity, entity_id, action, before_json, after_json, ip, at
 
-settings                       // single row or key/value
-  id, upi_id, upi_payee_name, qr_image_path, hold_ttl_minutes default 12,
-  max_active_holds_per_user default 2, no_show_limit default 2,
-  cooldown_days default 7, unclaimed_cancel_days default 7,
-  support_phone, support_email, terms_text
+settings                       // single row, id = 1
+  id, shop_name, upi_id, upi_payee_name, qr_image_path,
+  support_phone, support_email, terms_text,
+  show_exact_stock default true,     // exact counts public, or just In stock / Low / Out
+  hide_out_of_stock default false    // hide zero-stock items from the public shelf
 
 notification_log               // so you can prove an email was attempted
   id, channel enum('EMAIL','TELEGRAM','SMS'), to_addr, template, status,
   payload jsonb, error text, sent_at
 ```
 
-## 11. State machine (orders)
+## 11. Lifecycle of a sale
 
 ```
-HOLD ──pay/declare UTR──▶ PAYMENT_PENDING ──verified──▶ PAID ──staff──▶ READY
- │                              │                                    │
- │ expires                      │ rejected / window passes          pickup
- ▼                              ▼                                    ▼
-EXPIRED                      CANCELLED                           FULFILLED
-                                                                     │
-PAID/READY ──unclaimed > N days──▶ CANCELLED  (→ REFUNDED or store credit)
+                        admin records sale
+                                │
+                                ▼
+                    ┌───────────────────────┐
+                    │ ACTIVE                │  sale row + SALE movements + stock_levels
+                    └───────────────────────┘
+                                │
+              entered by mistake│
+                                ▼
+                    ┌───────────────────────┐
+                    │ VOIDED                │  voided_at set + RETURN movements
+                    └───────────────────────┘  ignored by settlement
 ```
 
-Stock is held from `HOLD` through `READY`. Released on `EXPIRED` / `CANCELLED`. Converted to a
-permanent `SALE` movement only on `FULFILLED`.
+Stock moves exactly twice per sale at most: down when recorded, back up if voided. There is no hold,
+no expiry, no partial state, and therefore nothing to reconcile against an unpaid order.
 
 ## 12. Seeding
 
-`npm run db:seed` should insert: 5 partners, 1 owner user, settings row with your UPI ID, ~10 sample
-products, one historical purchase with shares, and one settled cycle — so the dashboard is not empty
-on day one and the settlement math is visibly correct.
+`npm run db:seed` inserts: 5 partners, 3 users (OWNER, ADMIN, CUSTOMER), a settings row, 12 products,
+one historical Blinkit purchase with 5-way shares, two counter sales, one expense, a **draft**
+settlement with the profit split, and two feedback entries.
+
+Expected output (it is a fixture, so the numbers should not drift):
+
+```
+products        12
+units on hand   70          # 80 bought − 10 sold
+purchase total  245200 paise
+partner shares  49040 / 49040 / 49040 / 49040 / 49040   # 245200 / 5, no paise lost
+revenue         42530 paise
+draft profit    3380 paise  # 42530 − 37650 cogs − 1500 expense
+profit split    676 / 676 / 676 / 676 / 676             # 3380 / 5
+```
+
+If those numbers change, either the seed changed or the maths did. Both are worth a look.
