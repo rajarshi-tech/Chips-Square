@@ -141,7 +141,9 @@ export async function createSale(input: CreateSaleInput): Promise<CreatedSale> {
         code: newSaleCode(),
         cycleId,
         subtotalPaise,
-        discountPaise: Math.max(0, subtotalPaise - totalPaise),
+        // Signed on purpose: a price edited above MRP at the counter is real, and the row must still
+        // satisfy subtotal - discount = total. Clamping this to 0 would leave the sale unreconciled.
+        discountPaise: subtotalPaise - totalPaise,
         totalPaise,
         method: input.method,
         buyerName: input.buyerName?.trim() || null,

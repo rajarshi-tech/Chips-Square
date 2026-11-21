@@ -253,8 +253,9 @@ opens.
 ### Counter sales, two roles, and deleting an account
 
 - **Sales recording is in**, the last thing the profit split needs: `/admin/sales` (day book, today's
-  takings) and `/admin/sales/new` (type-ahead offering only what is on the shelf, qty capped at
-  on-hand, editable price per line).
+  takings) and `/admin/sales/new` (the whole shelf as tap-to-add tiles, qty capped at on-hand,
+  editable price per line). A counter price above MRP makes the sale's `discount_paise` negative on
+  purpose, so `subtotal = total + discount` still holds — clamping it to 0 left the row unreconciled.
 - `createSale` is one transaction: resolve the open cycle (creating the month's if missing), snapshot
   `unit_cost_paise` per line, insert sale + items, then a `SALE` movement per line. Verified on PGlite:
   2 + 1 units left the shelf, ₹56 taken, and voiding returned both counts to their starting numbers.

@@ -330,7 +330,7 @@ async function main() {
     }
   }
 
-  console.log("→ expense, draft settlement, feedback");
+  console.log("→ expense, feedback");
   await db.insert(expenses).values({
     cycleId: cycle.id,
     kind: "TRANSPORT",
@@ -350,29 +350,9 @@ async function main() {
   const expensesTotal = 1500;
   const profit = revenue - cogs - expensesTotal;
 
-  const [settlement] = await db
-    .insert(settlements)
-    .values({
-      cycleId: cycle.id,
-      revenuePaise: revenue,
-      cogsPaise: cogs,
-      expensesPaise: expensesTotal,
-      closingStockValuePaise: 0,
-      profitPaise: profit,
-      status: "DRAFT",
-      createdBy: ownerId,
-    })
-    .returning({ id: settlements.id, profitPaise: settlements.profitPaise });
-
-  const profitShares = splitEvenly(settlement.profitPaise, PARTNER_NAMES.map(() => 1));
-  await db.insert(settlementShares).values(
-    partnerRows.map((p, i) => ({
-      settlementId: settlement.id,
-      partnerId: p.id,
-      sharePct: "20.00",
-      amountPaise: profitShares[i],
-    })),
-  );
+  // No settlement row on purpose: the cycle is left OPEN so the preview on /admin/cycles/<id> can be
+  // checked against these numbers, and closing it is something you can try. Preview is always live.
+  const profitShares = splitEvenly(profit, PARTNER_NAMES.map(() => 1));
 
   const [fb1] = await db
     .insert(feedback)
@@ -412,8 +392,8 @@ async function main() {
   console.log(`  partner shares  ${shares.join(" / ")}`);
   console.log(`  sales           ${createdSales.map((s) => s.code).join(", ")}`);
   console.log(`  revenue         ${revenue} paise`);
-  console.log(`  draft profit    ${profit} paise`);
-  console.log(`  profit split    ${profitShares.join(" / ")}`);
+  console.log(`  profit so far   ${profit} paise`);
+  console.log(`  split preview   ${profitShares.join(" / ")}`);
   console.log("");
   console.log("  sign in at /login");
   console.log(`    owner@chipssquare.in   ${demoPassword}  (OWNER)`);

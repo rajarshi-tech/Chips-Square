@@ -16,7 +16,7 @@ const NAV = [
   { href: "/admin/stock", label: "Stock", ready: true },
   { href: "/admin/sales", label: "Sales", ready: true },
   { href: "/admin/purchases", label: "Purchases", ready: false },
-  { href: "/admin/cycles", label: "Cycles", ready: false },
+  { href: "/admin/cycles", label: "Cycles", ready: true },
   { href: "/admin/partners", label: "Partners", ready: false },
   { href: "/admin/feedback", label: "Feedback", ready: false },
   { href: "/admin/users", label: "People", ready: true, ownerOnly: true },

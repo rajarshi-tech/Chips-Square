@@ -59,8 +59,9 @@ and the split is arithmetically identical to what you would have done in the not
 
 ## Phase 3 — Counter sales (3–4 days) ✅ mostly done
 
-- [x] `/admin/sales/new`: product type-ahead (only what is on the shelf), qty capped at on-hand,
-      editable line price, method, buyer note. Usable one-handed.
+- [x] `/admin/sales/new`: the whole in-stock shelf as tappable tiles (one tap = one pack, minus to
+      take one back), the basket beside it, editable line price, method, buyer note. No searching,
+      no typing needed. Usable one-handed.
 - [x] Atomic write: sale + items + `SALE` movements + stock refresh, in one transaction. The on-hand
       check happens inside that transaction.
 - [x] Void a sale with a required reason → `RETURN` movements; voided sales are excluded from revenue

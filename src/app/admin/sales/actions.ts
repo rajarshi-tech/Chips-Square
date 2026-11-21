@@ -5,24 +5,8 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireManager } from "@/lib/auth/session";
 import { createSale, SaleError, voidSale } from "@/lib/sales";
-import { searchSellableProducts } from "@/lib/queries/sellable";
 
 export type SaleFormState = { error: string | null };
-
-export type SellableMatch = {
-  id: string;
-  name: string;
-  brand: string | null;
-  sizeLabel: string | null;
-  onHand: number;
-  sellPaise: number;
-};
-
-/** Type-ahead for the counter form. Small payload, no images, fast on a phone. */
-export async function searchProductsAction(query: string): Promise<SellableMatch[]> {
-  await requireManager();
-  return searchSellableProducts(query);
-}
 
 const LineSchema = z.object({
   productId: z.string().min(1),

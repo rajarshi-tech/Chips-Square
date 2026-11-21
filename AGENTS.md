@@ -56,7 +56,7 @@ src/app/                     routes (App Router, server components by default)
   admin/                     guarded back office; layout.tsx is the guard + nav
     products/                list, create (barcode -> Open Food Facts), edit, archive
     stock/                   on-hand list, per-product adjustment form + ledger history
-    sales/                   day book; new sale with product type-ahead; void with a reason
+    sales/                   day book; new sale from a tap-to-add shelf grid; void with a reason
     users/                   owner-only: add people, roles, passwords, revoke
 src/components/              presentational components (no DB access)
 src/lib/
@@ -71,7 +71,7 @@ src/lib/
   stock-rules.ts             reason -> movement mapping (pure, tested); sets every sign
   stock-admin.ts             stock reads + adjustStock, the single write path for units
   sales.ts                   createSale / voidSale: revenue + SALE/RETURN movements, one transaction
-  queries/sellable.ts        the counter form's product finder
+  queries/sellable.ts        the counter form's shelf (every in-stock product, one payload)
   users-admin.ts             account writes: create, role, revoke, last-owner guard
   openfoodfacts.ts           barcode -> name/brand/size prefill (never the source of truth)
   queries/dashboard.ts       admin overview read model
@@ -185,9 +185,10 @@ first owner, because `/admin/users` needs one to open.
 Not built yet: purchases, cycles/settlement, feedback inbox. Those nav items are labelled "soon"
 rather than linked to a dead route.
 
-**Sales**: `/admin/sales` day book with today's takings, `/admin/sales/new` with product type-ahead
-(qty capped at what is on the shelf, price editable per line), and void-with-reason, which returns
-units through `RETURN` movements. Each line snapshots `unit_cost_paise`, so COGS is frozen.
+**Sales**: `/admin/sales` day book with today's takings. `/admin/sales/new` is the whole in-stock
+shelf as tap-to-add tiles (qty capped at what is on the shelf, price editable per line, a price
+change shows as "was ₹x" on the line and lands in the sale's `discount_paise`), and void-with-reason
+returns units through `RETURN` movements. Each line snapshots `unit_cost_paise`, so COGS is frozen.
 
 The product page shows stock and "ask at the counter" — no buy button, by design.
 

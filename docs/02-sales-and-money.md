@@ -34,12 +34,18 @@ it takes ten seconds, and it keeps revenue — which the profit split depends on
 
 ```
 /admin/sales/new
-  ├─ pick products + quantities (search first, the shelf is small)
-  ├─ price comes from the product's current sell price; editable per line for haggling
+  ├─ the whole in-stock shelf as tiles: tap a pack, it lands in the basket (tap again for more,
+  │  minus on the tile to take one back); a filter box exists for a long catalogue and for barcode
+  │  scanners, but nobody has to search to sell a packet of chips
+  ├─ basket beside it (below it on a phone, with the total pinned to the bottom bar): qty stepper,
+  │  price editable per line for haggling, "was ₹x" shows a changed price and puts it back
   ├─ method: cash | UPI | transfer
   ├─ optional buyer name ("Priya, 3rd floor") and note
   └─ Save
 ```
+
+A counter price above MRP is allowed. `discount_paise` is therefore signed (`subtotal − total`),
+because the row must always reconcile; it is not clamped at zero.
 
 On save, in **one transaction**:
 

@@ -174,8 +174,8 @@ sales
   code          text unique not null        // "S-DEMO01", shown on the receipt
   cycle_id      uuid fk cycles              // which batch the revenue belongs to
   sold_at       timestamptz default now()
-  subtotal_paise int
-  discount_paise int default 0
+  subtotal_paise int                        // MRP value of the lines
+  discount_paise int default 0              // signed: subtotal - total (negative = sold above MRP)
   total_paise    int not null
   method        enum('CASH','UPI','BANK_TRANSFER') default 'CASH'
   buyer_name    text                        // optional: "Priya, 3rd floor"

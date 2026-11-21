@@ -23,6 +23,17 @@ export function rupeesToPaise(input: number | string): number {
   return Math.round(Number(cleaned) * RUPEES_PER_PAISE);
 }
 
+/**
+ * Non-throwing `rupeesToPaise` for text inputs the admin is still typing.
+ * Returns null for anything that is not yet a whole-paisa amount, so a half-typed "24." does not
+ * blow up a client component mid-keystroke.
+ */
+export function tryRupeesToPaise(input: string): number | null {
+  const cleaned = input.replace(/[₹,\s]/g, "");
+  if (cleaned === "" || !/^\d{0,9}(\.\d{1,2})?$/.test(cleaned)) return null;
+  return Math.round(Number(cleaned) * RUPEES_PER_PAISE);
+}
+
 export function paiseToRupees(paise: number): number {
   return paise / RUPEES_PER_PAISE;
 }

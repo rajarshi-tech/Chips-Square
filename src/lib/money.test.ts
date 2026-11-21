@@ -11,6 +11,7 @@ import {
   savingPercent,
   splitEqually,
   splitEvenly,
+  tryRupeesToPaise,
 } from "./money";
 
 describe("rupeesToPaise", () => {
@@ -31,6 +32,23 @@ describe("rupeesToPaise", () => {
     expect(() => rupeesToPaise("abc")).toThrow();
     expect(() => rupeesToPaise("")).toThrow();
     expect(() => rupeesToPaise(Number.NaN)).toThrow();
+  });
+});
+
+describe("tryRupeesToPaise", () => {
+  it("parses what an admin types into the price box", () => {
+    expect(tryRupeesToPaise("249")).toBe(24900);
+    expect(tryRupeesToPaise("₹249.50")).toBe(24950);
+    expect(tryRupeesToPaise("1,249")).toBe(124900);
+    expect(tryRupeesToPaise("0")).toBe(0);
+  });
+
+  it("returns null while the value is still incomplete, instead of throwing mid-keystroke", () => {
+    expect(tryRupeesToPaise("")).toBeNull();
+    expect(tryRupeesToPaise("24.")).toBeNull();
+    expect(tryRupeesToPaise("abc")).toBeNull();
+    expect(tryRupeesToPaise("12.345")).toBeNull();
+    expect(tryRupeesToPaise("-12")).toBeNull();
   });
 });
 
