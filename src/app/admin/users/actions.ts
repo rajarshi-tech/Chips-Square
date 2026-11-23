@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireOwner } from "@/lib/auth/session";
 import {
@@ -12,6 +13,7 @@ import {
   setUserPassword,
   setUserRole,
 } from "@/lib/users-admin";
+import { syncPartnersFromUsers } from "@/lib/partners";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -70,6 +72,29 @@ export async function createUserAction(
     if (err instanceof EmailTakenError) return { error: err.message };
     throw err;
   }
+}
+
+/**
+ * Put every admin/owner account that is not in the split yet into it. Owner-only, because adding a
+ * name to the split decides who gets paid.
+ *
+ * Additive and idempotent: it only inserts missing partner rows. Existing partners keep their name
+ * and share, finalised settlements keep their snapshot, and a cycle already closed is untouched.
+ * `cycleId` only decides where to send the browser back to.
+ */
+export async function addMissingPartnersAction(formData: FormData): Promise<void> {
+  await requireOwner();
+  const cycleId = String(formData.get("cycleId") ?? "");
+
+  const { created } = await syncPartnersFromUsers();
+
+  revalidatePath("/admin/users");
+  revalidatePath("/admin/cycles");
+  if (cycleId) {
+    revalidatePath(`/admin/cycles/${cycleId}`);
+    redirect(`/admin/cycles/${cycleId}?added=${created.length}`);
+  }
+  redirect(`/admin/users?added=${created.length}`);
 }
 
 export async function setRoleAction(formData: FormData): Promise<void> {

@@ -49,6 +49,10 @@ catalogue.
       `purchase_shares` snapshot for the partners active on that date.
 - [ ] `/admin/partners`: membership (joined/left), default share, contribution ledger with a clear
       "A owes B ₹X" matrix, mark-transfer-received with optional UTR.
+  <!-- NOTE (done): the partner list is the account list. Every ADMIN/OWNER gets a `partners` row
+       automatically (src/lib/partners.ts), existing accounts are backfilled from /admin/users or
+       `npm run partners:sync`, and the cycle split pays the active partner rows. What is still
+       missing from this line is the contribution/owed matrix, which needs purchases UI first. -->
 - [ ] `src/lib/settle.ts` + unit tests: revenue, cogs, expenses, profit, closing stock value.
 - [ ] `/admin/cycles`: open, close, **preview** settlement (read-only computation), then finalise.
 - [ ] `settlement_shares` distribution + mark-as-paid per partner.

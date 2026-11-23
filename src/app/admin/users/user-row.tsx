@@ -45,6 +45,14 @@ export function UserRow({ user, isSelf }: { user: AdminUserRow; isSelf: boolean 
             ) : (
               <span className="text-amber-700">No password — cannot sign in</span>
             )}
+            {" · "}
+            {user.partnerId && user.partnerActive ? (
+              <span className="text-emerald-700">in the profit split</span>
+            ) : user.partnerId ? (
+              <span className="text-neutral-500">left the split</span>
+            ) : (
+              <span className="text-amber-700">not in the profit split yet</span>
+            )}
           </p>
         </div>
 

@@ -62,6 +62,25 @@ Removal requires typing the person's email back before the button works, because
 The last owner is protected either way: you cannot demote, revoke or delete the only owner
 (`LastOwnerError`), and you cannot delete yourself — that would end your session mid-click.
 
+## 4a. Everyone with an account is a partner
+
+Accounts and partners are one list. The people who run the shop are the people the profit of each
+cycle is split between, so:
+
+- creating an account also creates its `partners` row (same transaction, name from the account name
+  or the email);
+- accounts that existed before this rule are added with one click on `/admin/users` or on a cycle's
+  split preview — the same thing as `npm run partners:sync`;
+- deleting an account deactivates its partner row rather than deleting it, so past settlements keep
+  naming the person and the next split stops paying them;
+- revoking sign-in does **not** remove someone from the split. Revoke is about the door, not the
+  money. If someone has left the club, remove the account — that takes them out of the next split and
+  keeps the rows that past settlements point at.
+
+A partner row can still exist with no account: someone who put money in but never signs in. That is
+why `partners.user_id` is nullable. `partners_user_idx` makes one account exactly one partner, so a
+second click or a sync race cannot put the same person in twice.
+
 ## 5. What "owner" still cannot do
 
 - Cannot delete a sale, a movement or a partner. Records are voided or archived, never erased.
@@ -76,5 +95,8 @@ The last owner is protected either way: you cannot demote, revoke or delete the 
    down why the five-person assumption no longer holds.
 3. Never allow the last owner to be demoted, revoked or deleted.
 4. Never delete a sale or a stock movement. Void it; the ledger keeps its trail.
-5. The terminal scripts (`npm run user:*`) call the same `src/lib/users-admin.ts` functions as the UI,
-   last-owner guard included. They are not a second implementation.
+5. The terminal scripts (`npm run user:*`, `npm run partners:sync`) call the same
+   `src/lib/users-admin.ts` / `src/lib/partners.ts` functions as the UI, last-owner guard included.
+   They are not a second implementation.
+6. Adding an account to the split is **additive**. Never backfill by rewriting partner rows,
+   re-splitting a settled cycle, or recomputing a `settlement_shares` snapshot.

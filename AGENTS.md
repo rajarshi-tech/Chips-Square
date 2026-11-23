@@ -35,6 +35,7 @@ npm run db:reset       # delete the local database entirely
 npm run db:studio      # drizzle studio
 npm run user:create   -- <email> --role OWNER --generate   # first account / new people
 npm run user:password -- <email> [--generate]              # reset a password
+npm run partners:sync                                      # give every account its partner row
 ```
 
 There is **no external database to install**. Without `DATABASE_URL`, everything runs on PGlite in
@@ -73,6 +74,8 @@ src/lib/
   sales.ts                   createSale / voidSale: revenue + SALE/RETURN movements, one transaction
   queries/sellable.ts        the counter form's shelf (every in-stock product, one payload)
   users-admin.ts             account writes: create, role, revoke, last-owner guard
+  partners.ts                account <-> partner: auto-create on signup, one-click backfill
+  settle.ts                  cycle preview + finalise: profit split, snapshotted shares
   openfoodfacts.ts           barcode -> name/brand/size prefill (never the source of truth)
   queries/dashboard.ts       admin overview read model
   settings.ts                cached settings row with defaults
@@ -125,12 +128,19 @@ covered in `docs/01-data-model.md`.
 13. **Every admin page and admin server action calls `requireManager()`.** The `/admin` layout guard
     covers pages only — server actions are separate entry points and a layout cannot protect them.
     Authorisation is checked server-side, always; hiding a button is not access control.
-14. **Two roles only: `OWNER` and `ADMIN`.** Owner manages accounts and settlements; admins run the
-    whole shop. Do not add `PARTNER`/`CUSTOMER` back — the shelf is public and the five people share
-    the work. Account management is `requireOwner()` on the page *and* the action. `LastOwnerError`
-    is absolute: the last owner can never be demoted, revoked or deleted, and nobody can delete
-    themselves. Revoke (clear `password_hash`) keeps a name on past records; delete removes the row
-    and the name with it. See `docs/06-roles-and-accounts.md`.
+14. **Two roles only: `OWNER` and `ADMIN`, and every one of them is a partner.** Owner manages
+    accounts and settlements; admins run the whole shop. Do not add `PARTNER`/`CUSTOMER` back — the
+    shelf is public and the five people share the work. Each account gets a `partners` row
+    (`src/lib/partners.ts`) in the same transaction that creates it, and each cycle's profit is split
+    between the active partner rows. Existing accounts are added with one click on `/admin/users`,
+    on a cycle, or with `npm run partners:sync`; that backfill only INSERTs, so names, shares and
+    every finalised settlement stay exactly as they were. Deleting an account deactivates its partner
+    (`left_at`, `is_active = false`) instead of deleting the row that past settlements point at.
+    `partners_user_idx` means one account is one partner. Account management is `requireOwner()` on
+    the page *and* the action. `LastOwnerError` is absolute: the last owner can never be demoted,
+    revoked or deleted, and nobody can delete themselves. Revoke (clear `password_hash`) keeps a name
+    on past records; delete removes the row and the name with it. See
+    `docs/06-roles-and-accounts.md`.
 15. **Products are archived, never deleted**, and a product's `slug` is frozen after creation — a
     rename must not break a shared link. Same-brand-same-name-same-size is rejected as a duplicate
     (unique index `products_identity_idx`); the error surfaces as `DuplicateProductError`.

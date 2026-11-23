@@ -4,6 +4,7 @@ import { getSessionUser } from "@/lib/auth/session";
 import { formatINR } from "@/lib/money";
 import { getSettlementForPreview, settlementPreview } from "@/lib/settle";
 import { finaliseCycleAction, markSharePaidAction } from "../actions";
+import { addMissingPartnersAction } from "@/app/admin/users/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -18,10 +19,10 @@ type ShareRow = {
 
 export default async function CyclePage(props: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ error?: string; settled?: string }>;
+  searchParams: Promise<{ error?: string; settled?: string; added?: string }>;
 }) {
   const { id } = await props.params;
-  const { error, settled } = await props.searchParams;
+  const { error, settled, added } = await props.searchParams;
 
   const [preview, user] = await Promise.all([settlementPreview(id), getSessionUser()]);
   if (!preview) notFound();
@@ -61,6 +62,13 @@ export default async function CyclePage(props: {
           Settled. Each share below is frozen to what was true today.
         </p>
       ) : null}
+      {added ? (
+        <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+          {Number(added) > 0
+            ? `Added ${added} ${Number(added) === 1 ? "person" : "people"} to the profit split.`
+            : "Everyone already has a share — nothing to add."}
+        </p>
+      ) : null}
       {error ? (
         <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
           {error}
@@ -93,6 +101,34 @@ export default async function CyclePage(props: {
             <li key={warning}>· {warning}</li>
           ))}
         </ul>
+      ) : null}
+
+      {preview.accountsNotInSplit.length > 0 && !saved ? (
+        <section className="space-y-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
+          <h2 className="text-sm font-semibold text-amber-900">
+            {preview.accountsNotInSplit.length}{" "}
+            {preview.accountsNotInSplit.length === 1 ? "account is" : "accounts are"} not in the
+            split yet
+          </h2>
+          <p className="text-sm text-amber-900">
+            {preview.accountsNotInSplit.map((account) => account.name).join(", ")} — adding{" "}
+            {preview.accountsNotInSplit.length === 1 ? "this person" : "these people"} splits the
+            profit {shares.length + preview.accountsNotInSplit.length} ways, not {shares.length}.
+          </p>
+          {isOwner ? (
+            <form action={addMissingPartnersAction}>
+              <input type="hidden" name="cycleId" value={cycle.id} />
+              <button
+                type="submit"
+                className="rounded-full bg-amber-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-800"
+              >
+                Add them to the split
+              </button>
+            </form>
+          ) : (
+            <p className="text-xs text-amber-900">Only the owner can change who is in the split.</p>
+          )}
+        </section>
       ) : null}
 
       <section className="overflow-hidden rounded-xl border border-black/10">

@@ -113,16 +113,18 @@ async function main() {
   const userRows = await db
     .insert(users)
     .values([
+      // Names match the first three partners below, because an account *is* a partner: the person
+      // who signs in to run the shop is the person the profit is split to.
       {
         email: "owner@chipssquare.in",
-        name: "Owner",
+        name: "Aarav",
         phone: "+919000000001",
         role: "OWNER",
         passwordHash: demoHash,
       },
       {
         email: "staff@chipssquare.in",
-        name: "Shop Staff",
+        name: "Bhavna",
         phone: "+919000000002",
         role: "ADMIN",
         passwordHash: demoHash,
@@ -130,7 +132,7 @@ async function main() {
       // Every partner who signs in is an ADMIN; only the site owner is an OWNER.
       {
         email: "partner@chipssquare.in",
-        name: "Partner Two",
+        name: "Chirag",
         phone: "+919000000003",
         role: "ADMIN",
         passwordHash: demoHash,
@@ -141,13 +143,16 @@ async function main() {
   const ownerId = userRows.find((u) => u.email === "owner@chipssquare.in")!.id;
   const staffId = userRows.find((u) => u.email === "staff@chipssquare.in")!.id;
   const partnerUserId = userRows.find((u) => u.email === "partner@chipssquare.in")!.id;
+  // The three accounts, in the same order as PARTNER_NAMES. The last two partners put money in but
+  // never sign in, which is why the link is nullable on the partner side.
+  const accountIds = [ownerId, staffId, partnerUserId];
 
   const partnerRows = await db
     .insert(partners)
     .values(
       PARTNER_NAMES.map((name, i) => ({
         name,
-        userId: i === 0 ? ownerId : null,
+        userId: accountIds[i] ?? null,
         contact: `+91900000000${i + 1}`,
         joinedAt: "2025-01-15",
         defaultSharePct: "20.00",

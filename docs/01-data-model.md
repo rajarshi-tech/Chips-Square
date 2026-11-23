@@ -39,14 +39,30 @@ not have.
 ```ts
 partners
   id              uuid pk
-  user_id         uuid null fk users     // optional: a partner may not need a login
+  user_id         uuid null fk users unique   // one account = one partner
   name            text not null
   contact         text
   joined_at       date not null
   left_at         date null
   default_share_pct numeric(5,2)        // e.g. 20.00 for 1/5; nullable → equal split
-  is_active       bool generated? no   // derive: left_at is null
+  is_active       bool default true     // false once the account is removed
 ```
+
+**Partners are the admins.** The people who run the shop are the people the profit is split between,
+so every `ADMIN`/`OWNER` account gets a `partners` row automatically. `src/lib/partners.ts` owns the
+rule:
+
+- creating an account creates its partner row in the same transaction;
+- `npm run partners:sync` (or one button on `/admin/users` and on a cycle) adds the rows for accounts
+  that predate the rule. It only INSERTs, so names, shares and every finalised settlement are
+  untouched;
+- removing an account sets its partner's `left_at`/`is_active = false` instead of deleting the row —
+  past `purchase_shares` and `settlement_shares` still point at it, but the next split stops paying
+  someone who has left.
+
+A partner may still exist without a login (`user_id` null): someone who put money in but never signs
+in keeps their row and their share. `partners_user_idx` makes one account = one partner, so a second
+click cannot put the same person in the split twice.
 
 Share percentages are only a **default for new cycles**. Every purchase and every settlement stores
 its own snapshot, so adding partner #6 later never rewrites the past.

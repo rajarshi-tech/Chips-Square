@@ -2,10 +2,11 @@ import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { cycles, expenses, purchases } from "@/db/schema/purchasing";
 import { saleItems, sales } from "@/db/schema/sales";
-import { partners } from "@/db/schema/identity";
+import { partners, users } from "@/db/schema/identity";
 import { settlementShares, settlements } from "@/db/schema/settlement";
 import { stockValuePaise } from "@/lib/inventory";
 import { splitEvenly } from "@/lib/money";
+import { defaultPartnerName } from "@/lib/partners";
 
 /**
  * Cycle settlement: turning a batch of trading into five equal payouts.
@@ -51,6 +52,11 @@ export type SettlementPreview = {
   figures: SettlementFigures;
   counts: { sales: number; units: number; purchases: number; expenseLines: number; partners: number };
   shares: PreviewShare[];
+  /**
+   * Admin/owner accounts with no partner row yet. They are not in the split above, so closing now
+   * would pay the others more than they should get. One click on the cycle page adds them.
+   */
+  accountsNotInSplit: { name: string; email: string }[];
   /** Plain-language things the operator should read before finalising. */
   warnings: string[];
   existingSettlementId: string | null;
@@ -130,11 +136,22 @@ export async function settlementPreview(cycleId: string): Promise<SettlementPrev
     expensesPaise,
   });
 
+  // Everyone still in the pool: no leave date, not switched off. Every one of these is an
+  // admin/owner account (src/lib/partners.ts), created with the account or backfilled in one click.
   const activePartners = await db
     .select({ id: partners.id, name: partners.name })
     .from(partners)
-    .where(isNull(partners.leftAt))
+    .where(and(isNull(partners.leftAt), eq(partners.isActive, true)))
     .orderBy(asc(partners.name));
+
+  // Accounts that are not partners yet are listed, never silently created here: a read must not
+  // write, and the owner should see who is being added to the split before it happens.
+  const unlinkedAccounts = await db
+    .select({ userId: users.id, name: users.name, email: users.email })
+    .from(users)
+    .leftJoin(partners, eq(partners.userId, users.id))
+    .where(isNull(partners.id))
+    .orderBy(asc(users.email));
 
   const amounts = splitEvenly(
     distributablePaise,
@@ -158,6 +175,8 @@ export async function settlementPreview(cycleId: string): Promise<SettlementPrev
   const warnings: string[] = [];
   if ((money?.saleCount ?? 0) === 0) warnings.push("No sales in this cycle — nothing to distribute.");
   if (activePartners.length === 0) warnings.push("No active partners, so there is nobody to pay.");
+  // Accounts not in the split are surfaced by `accountsNotInSplit`, not as a warning line: the cycle
+  // page shows them in their own block next to the button that adds them.
   if (profitPaise < 0) {
     warnings.push(
       `This cycle lost money. Nothing is paid out; the loss stays in the central account.`,
@@ -199,6 +218,7 @@ export async function settlementPreview(cycleId: string): Promise<SettlementPrev
       partners: activePartners.length,
     },
     shares,
+    accountsNotInSplit: unlinkedAccounts.map((a) => ({ name: defaultPartnerName(a), email: a.email })),
     warnings,
     existingSettlementId: existing?.id ?? null,
   };

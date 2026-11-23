@@ -1,8 +1,9 @@
 import { randomBytes } from "node:crypto";
 import { asc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { users } from "@/db/schema";
+import { partners, users } from "@/db/schema";
 import { hashPassword } from "@/lib/auth/password";
+import { deactivatePartnerForUser, ensurePartnerForUser } from "@/lib/partners";
 import type { Role } from "@/lib/auth/session";
 
 /**
@@ -16,6 +17,10 @@ import type { Role } from "@/lib/auth/session";
  *
  * `LastOwnerError` guards both: the business must always have one owner who can sign in and manage
  * accounts.
+ *
+ * Accounts and partners are the same list (src/lib/partners.ts): creating an account also puts that
+ * person into the profit split, and deleting one takes them out of future splits without deleting
+ * the partner row that past settlements point at.
  *
  * Vocabulary (two roles, deliberately):
  *   OWNER  one person: the site owner. Everything an admin can do, plus accounts and settlements.
@@ -57,6 +62,9 @@ export type AdminUserRow = {
   canSignIn: boolean;
   lastLoginAt: Date | null;
   createdAt: Date;
+  /** partners.id — null means this account is not in the profit split yet. */
+  partnerId: string | null;
+  partnerActive: boolean;
 };
 
 export const ASSIGNABLE_ROLES: Role[] = ["ADMIN", "OWNER"];
@@ -81,11 +89,18 @@ export async function listUsers(): Promise<AdminUserRow[]> {
       passwordHash: users.passwordHash,
       lastLoginAt: users.lastLoginAt,
       createdAt: users.createdAt,
+      partnerId: partners.id,
+      partnerActive: partners.isActive,
     })
     .from(users)
+    .leftJoin(partners, eq(partners.userId, users.id))
     .orderBy(asc(users.role), asc(users.email));
 
-  return rows.map(({ passwordHash, ...rest }) => ({ ...rest, canSignIn: passwordHash !== null }));
+  return rows.map(({ passwordHash, partnerActive, ...rest }) => ({
+    ...rest,
+    canSignIn: passwordHash !== null,
+    partnerActive: partnerActive ?? false,
+  }));
 }
 
 export async function createUser(input: {
@@ -99,15 +114,22 @@ export async function createUser(input: {
 
   let inserted: { id: string; email: string; role: Role };
   try {
-    [inserted] = await db
-      .insert(users)
-      .values({
-        email,
-        name: input.name,
-        role: input.role,
-        passwordHash: await hashPassword(password),
-      })
-      .returning({ id: users.id, email: users.email, role: users.role });
+    inserted = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .insert(users)
+        .values({
+          email,
+          name: input.name,
+          role: input.role,
+          passwordHash: await hashPassword(password),
+        })
+        .returning({ id: users.id, email: users.email, role: users.role });
+
+      // Same transaction: an account that can sign in but is silently absent from the profit split
+      // is a bug nobody notices until the money is counted.
+      await ensurePartnerForUser(row.id, tx);
+      return row;
+    });
   } catch (err) {
     if (isUniqueViolation(err)) throw new EmailTakenError(email);
     throw err;
@@ -153,7 +175,9 @@ export async function setUserRole(id: string, role: Role): Promise<void> {
  * Permanently remove an account. Owner-only, and never the last owner.
  *
  * Foreign keys are `set null` (partners, feedback) or absent (created_by columns), so history keeps
- * its rows and loses only the name attached to them.
+ * its rows and loses only the name attached to them. The person's partner row is deactivated first
+ * for the same reason: past settlements keep their snapshot, but the next split no longer pays an
+ * account that no longer exists.
  */
 export async function deleteUser(id: string, actorId: string): Promise<void> {
   if (id === actorId) throw new LastOwnerError(); // deleting yourself locks you out mid-session
@@ -162,7 +186,10 @@ export async function deleteUser(id: string, actorId: string): Promise<void> {
   if (!row) throw new Error("User not found");
   if (row.role === "OWNER") await assertAnotherOwnerRemains(id);
 
-  await db.delete(users).where(eq(users.id, id));
+  await db.transaction(async (tx) => {
+    await deactivatePartnerForUser(id, tx);
+    await tx.delete(users).where(eq(users.id, id));
+  });
 }
 
 async function assertAnotherOwnerRemains(excludingId: string): Promise<void> {
